@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AS TAIPEI 服務系統 v1.0</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 Inter 字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        /* 整體樣式設定 */
+        :root {
+            --primary-orange: #f97316; /* Tailwind orange-500 */
+            --primary-grey: #e5e7eb; /* Tailwind gray-200 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--primary-grey); /* 底色灰色 */
+        }
+        .signature-canvas {
+            /* 調整高度，使其看起來更大更專業 */
+            border: 2px solid var(--primary-orange);
+            background-color: #fff;
+            touch-action: none; /* 允許手機/平板上的簽名操作 */
+        }
+        /* 隱藏原生數字輸入的箭頭 */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        /* 處理列印時隱藏不需要的元素 */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .container {
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            body {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <!-- 頂部標題與導航 -->
+    <header class="text-center mb-8 no-print">
+        <h1 class="text-4xl font-extrabold text-orange-500 tracking-wider">AS TAIPEI</h1>
+        <p class="text-xl text-white bg-gray-900 px-4 py-1 inline-block rounded-lg shadow-xl mt-2">汽車服務專屬系統</p>
+    </header>
+
+    <!-- 主應用程式容器 (灰色背景 + 高級質感) -->
+    <main id="app-container" class="max-w-6xl mx-auto bg-white p-6 md:p-10 rounded-xl shadow-2xl transition-all duration-300">
+        
+        <!-- Loading Indicator -->
+        <div id="loading" class="text-center p-8 text-lg text-gray-500">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-orange-500 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            載入中... (正在連線至 Firebase 資料庫)
+        </div>
+
+        <!-- 導航按鈕 -->
+        <div id="nav-bar" class="hidden flex justify-center space-x-4 mb-8 no-print">
+            <button onclick="setMode('history')" class="nav-btn bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-150 p-3 rounded-lg font-semibold shadow-md">歷史工單</button>
+            <button onclick="setMode('form')" class="nav-btn bg-orange-500 text-white hover:bg-orange-600 transition duration-150 p-3 rounded-lg font-semibold shadow-md">新增工單</button>
+        </div>
+
+        <!-- 模式容器 -->
+        <div id="mode-history" class="hidden"></div>
+        <div id="mode-form" class="hidden"></div>
+        <div id="mode-quote" class="hidden"></div>
+
+    </main>
+    
+    <!-- 模組化組件: 訊息視窗 -->
+    <div id="message-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 no-print">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 id="modal-title" class="text-xl font-bold mb-4 text-orange-500">提示</h3>
+            <p id="modal-body" class="mb-6 text-gray-700"></p>
+            <button onclick="closeMessageModal()" class="w-full bg-orange-500 text-white p-3 rounded-lg font-semibold hover:bg-orange-600 transition duration-150">確定</button>
+        </div>
+    </div>
+    
+    <!-- 模組化組件: 確認視窗 (用於刪除等重要操作) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 no-print">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 id="confirm-title" class="text-xl font-bold mb-4 text-red-500">確認操作</h3>
+            <p id="confirm-body" class="mb-6 text-gray-700"></p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="window.confirmCallback(false)" class="bg-gray-200 text-gray-700 p-3 rounded-lg font-semibold hover:bg-gray-300 transition duration-150">取消</button>
+                <button onclick="window.confirmCallback(true)" class="bg-red-500 text-white p-3 rounded-lg font-semibold hover:bg-red-600 transition duration-150">確定刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase 核心及 Firestore, Auth 模組 -->
+    <script type="module">
+        // 為了確保功能正常，我們保留 Firebase SDK 版本 10.12.2 的修正。
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        // 新增 deleteDoc 函式
+        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // setLogLevel('Debug'); // 開發時可開啟
+
+        // 全域變數
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+        let currentMode = 'form';
+        let workOrders = [];
+        let currentFormData = {};
+
+        // 銷售業務、服務項目、付款方式等固定選單資料
+        const SALES_REPS = ["小揚", "小蔡", "Audi", "其他"];
+        const SERVICE_ITEMS = [
+            "車漆包膜", "車漆鍍膜", "專業洗車", "車漆烤漆", "內裝修復", "自訂" 
+        ];
+        const PAYMENT_METHODS = [
+            { id: 'cash', name: '現金', fee: 0 },
+            { id: 'transfer', name: '匯款', fee: 0 },
+            { id: 'card', name: '刷卡', fee: 0.03 } // 3%
+        ];
+
+        // 汽車品牌與車款資料 (初始版本 - 僅包含常見車型)
+        const CAR_MODELS_FLAT = [
+            "Toyota Corolla Cross", "Toyota RAV4", "Lexus NX", "Lexus RX", 
+            "M-Benz C-Class", "M-Benz E-Class", "BMW 3 Series", "BMW 5 Series",
+            "Audi A4", "Audi Q5", "Porsche 911", "Porsche Cayenne", 
+            "Tesla Model 3", "Tesla Model Y", "Ford Focus", "Honda CR-V", 
+            "Nissan Kicks", "Mazda3", "Volvo XC60", "Volkswagen Golf",
+            "Luxgen n7", "MG HS", "KIA Carnival", "Hyundai Tucson L",
+            "其他/未分類"
+        ].sort(); // 自動排序方便搜尋
+        
+        // 店家資訊 (用於列印報價單)
+        const SHOP_INFO = {
+            name: "AS TAIPEI",
+            address: "台北市內湖區民權東路六段15巷35號1樓",
+            phone: "02-27909077",
+            // 使用更專業的 Logo 預設 URL
+            logoUrl: "https://placehold.co/300x100/1f2937/f97316?font=inter&text=AS+TAIPEI+AUTO" 
+        };
+        
+        // Global variables for confirmation logic (used by confirm-modal buttons)
+        window.confirmCallback = null;
+        
+        // =========================================================================
+        // 【新增】工單 ID 生成邏輯: 格式 YYMMDD-XXXX
+        // =========================================================================
+        const generateWorkOrderId = () => {
+            const now = new Date();
+            const year = now.getFullYear().toString().slice(-2);
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const datePrefix = `${year}${month}${day}`;
+            
+            // 找出今天已有的工單數量
+            const todayOrders = workOrders.filter(order => order.id.startsWith(datePrefix));
+            const sequenceNumber = (todayOrders.length + 1).toString().padStart(4, '0');
+            
+            return `${datePrefix}-${sequenceNumber}`;
+        };
+
+
+        /**
+         * 顯示自定義訊息視窗 (替代 alert)
+         */
+        window.showMessageModal = (title, body) => {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').textContent = body;
+            document.getElementById('message-modal').classList.remove('hidden');
+        };
+
+        window.closeMessageModal = () => {
+            document.getElementById('message-modal').classList.add('hidden');
+        };
+
+        /**
+         * 顯示自定義確認視窗 (替代 confirm)
+         */
+        window.showConfirmModal = (title, body, onConfirm) => {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-body').textContent = body;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+            
+            // 設定全域回呼函數
+            window.confirmCallback = (result) => {
+                document.getElementById('confirm-modal').classList.add('hidden');
+                onConfirm(result);
+                window.confirmCallback = null; // 清除回呼函數
+            };
+        };
+
+
+        const initializeFirebase = async () => {
+            const loadingEl = document.getElementById('loading');
+            const navBarEl = document.getElementById('nav-bar');
+            
+            try {
+                // =========================================================================
+                // 【使用者提供的設定】
+                // 這是您提供的 Firebase 專案設定。
+                // =========================================================================
+                
+                const manualConfig = {
+                    apiKey: "AIzaSyBXjoN2ys4i1MMCDgAgX5SQfnK-3FoodgI",
+                    authDomain: "as-taipei-d66fb.firebaseapp.com",
+                    projectId: "as-taipei-d66fb",
+                    storageBucket: "as-taipei-d66fb.firebasestorage.app",
+                    messagingSenderId: "501804734426",
+                    appId: "1:501804734426:web:47271f84ff7454aea692e3"
+                };
+
+                // 設定一個用於數據庫路徑的 App ID
+                const appId = "as-taipei-app"; 
+
+                // 初始化 Firebase 服務
+                app = initializeApp(manualConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // 強制使用匿名登入 (signInAnonymously)
+                await signInAnonymously(auth);
+
+                // 監聽登入狀態
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        
+                        loadingEl.classList.add('hidden');
+                        navBarEl.classList.remove('hidden');
+                        
+                        // 傳入 appId 以確保路徑正確
+                        setupFirestoreListener(appId);
+                        renderUI();
+
+                    } else {
+                        isAuthReady = false;
+                        loadingEl.textContent = '身份驗證失敗，請檢查配置。';
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase 初始化錯誤:", error);
+                loadingEl.textContent = `Firebase 初始化錯誤: ${error.message}`;
+            }
+        };
+
+        const setupFirestoreListener = (appId) => {
+            if (!db || !isAuthReady) return;
+
+            // 注意：這裡的路徑結構需與您的安全規則匹配，使用 public 讓所有登入者可讀寫
+            const workOrdersRef = collection(db, `artifacts/${appId}/public/data/workOrders`);
+            
+            onSnapshot(workOrdersRef, (snapshot) => {
+                // 必須讀取所有欄位，因為要依據 ID (日期部分) 進行排序
+                workOrders = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })).sort((a, b) => {
+                    // 確保 id 存在且是字串，以 ID (日期) 進行逆向排序
+                    const idA = a.id || '';
+                    const idB = b.id || '';
+                    return idB.localeCompare(idA);
+                }); 
+                
+                if (currentMode === 'history') {
+                    renderHistoryMode();
+                }
+            }, (error) => {
+                console.error("Firestore 監聽錯誤:", error);
+                if (error.code === 'permission-denied') {
+                     showMessageModal("權限錯誤", "無法讀取資料庫。請至 Firebase Console 檢查 Firestore Rules 是否已設為公開 (allow read, write: if true;)。");
+                }
+            });
+        };
+        
+        const renderUI = () => {
+            setMode(currentMode);
+        };
+
+        window.setMode = (mode, data = null) => {
+            currentMode = mode;
+            document.getElementById('mode-history').classList.add('hidden');
+            document.getElementById('mode-form').classList.add('hidden');
+            document.getElementById('mode-quote').classList.add('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-orange-500', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            const activeBtn = document.querySelector(`#nav-bar button[onclick*="${mode}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                activeBtn.classList.add('bg-orange-500', 'text-white');
+            }
+
+            if (mode === 'history') {
+                renderHistoryMode();
+            } else if (mode === 'form') {
+                renderFormMode();
+            } else if (mode === 'quote' && data) {
+                currentFormData = data;
+                renderQuoteMode();
+            }
+
+            document.getElementById(`mode-${mode}`).classList.remove('hidden');
+        };
+
+        // --- 輔助函數 ---
+
+        const formatDate = (date) => {
+            if (!date) return '';
+            // 處理 Firestore Timestamp 或 Date object
+            const d = date.toDate ? date.toDate() : new Date(date); 
+            let month = '' + (d.getMonth() + 1);
+            let day = '' + d.getDate();
+            let year = d.getFullYear();
+
+            if (month.length < 2) month = '0' + month;
+            if (day.length < 2) day = '0' + day;
+
+            return [year, month, day].join('-');
+        };
+
+        const formatCurrency = (price) => {
+            return `NT$ ${Math.round(price).toLocaleString('en-US')}`;
+        };
+
+        // --- 歷史工單管理功能 ---
+
+        window.editWorkOrder = (orderId) => {
+            const order = workOrders.find(o => o.id === orderId);
+            if (order) {
+                // 將儲存的 services 轉換回 serviceItems 格式，並放入 currentFormData
+                currentFormData = {
+                    ...order,
+                    // 重新結構化以符合表單的 serviceItems 格式
+                    serviceItems: order.services.map(s => ({
+                        name: s.name,
+                        price: s.price,
+                    }))
+                };
+                
+                // 進入表單模式
+                setMode('form');
+                showMessageModal("編輯模式", `正在編輯工單編號 [${orderId}]。`);
+            } else {
+                showMessageModal("錯誤", "找不到該工單資料進行修改。");
+            }
+        };
+
+        window.deleteWorkOrder = (orderId) => {
+            showConfirmModal(
+                "確認刪除工單", 
+                `您確定要永久刪除工單編號 [${orderId}] 的紀錄嗎？此操作無法復原。`,
+                (confirmed) => {
+                    if (confirmed) {
+                        performDeleteWorkOrder(orderId);
+                    }
+                }
+            );
+        };
+
+        const performDeleteWorkOrder = async (orderId) => {
+            if (!db || !isAuthReady) {
+                showMessageModal("錯誤", "資料庫尚未初始化。");
+                return;
+            }
+            
+            const appId = 'as-taipei-app';
+            
+            try {
+                const docRef = doc(db, `artifacts/${appId}/public/data/workOrders`, orderId);
+                
+                await deleteDoc(docRef);
+                showMessageModal("刪除成功", `工單 [${orderId}] 已成功從資料庫中刪除。`);
+                // onSnapshot 會自動更新列表
+            } catch (error) {
+                console.error("刪除工單失敗:", error);
+                showMessageModal("刪除失敗", `刪除工單時發生錯誤: ${error.message}`);
+            }
+        };
+
+        // --- 模式 1: 歷史工單 (History Mode) ---
+        
+        window.renderHistoryMode = () => {
+            const container = document.getElementById('mode-history');
+            const now = new Date();
+            const defaultYear = now.getFullYear();
+            const defaultMonth = now.getMonth() + 1; // 1-based
+
+            // 讀取當前的篩選值，如果沒有則使用預設值
+            let currentFilterYear = container.querySelector('#filter-year')?.value || defaultYear.toString();
+            let currentFilterMonth = container.querySelector('#filter-month')?.value || defaultMonth.toString();
+            
+            // 處理 'all' 選項
+            // 根據工單 ID (YYMMDD-XXXX) 找出年份
+            const yearOptions = Array.from(new Set(workOrders.map(o => {
+                if (o.id && o.id.length >= 6) {
+                    // ID 格式 YYMMDD
+                    const year = '20' + o.id.substring(0, 2); 
+                    return parseInt(year, 10);
+                }
+                // 舊資料或不符合格式的資料使用 timestamp 或 receiveDate
+                return (o.timestamp ? o.timestamp.toDate().getFullYear() : new Date(o.receiveDate).getFullYear());
+            }))).sort((a, b) => b - a);
+            const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+
+            let filteredOrders = workOrders;
+            
+            if (currentFilterYear !== 'all') {
+                filteredOrders = filteredOrders.filter(order => {
+                    let year;
+                    if (order.id && order.id.length >= 6) {
+                        year = '20' + order.id.substring(0, 2);
+                    } else {
+                        year = (order.timestamp ? order.timestamp.toDate().getFullYear() : new Date(order.receiveDate).getFullYear());
+                    }
+                    return year == currentFilterYear;
+                });
+            }
+
+            if (currentFilterMonth !== 'all' && currentFilterYear !== 'all') {
+                 filteredOrders = filteredOrders.filter(order => {
+                    let month;
+                    if (order.id && order.id.length >= 6) {
+                        month = parseInt(order.id.substring(2, 4), 10);
+                    } else {
+                        month = (order.timestamp ? order.timestamp.toDate().getMonth() + 1 : new Date(order.receiveDate).getMonth() + 1);
+                    }
+                    return month == currentFilterMonth;
+                });
+            }
+
+
+            container.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-2 border-orange-500 pb-2">歷史工單紀錄</h2>
+                <div class="flex flex-wrap gap-4 mb-6 items-center">
+                    <label class="font-semibold text-gray-700">篩選月份:</label>
+                    <select id="filter-year" onchange="renderHistoryMode()" class="p-2 border rounded-lg shadow-inner">
+                        <option value="all" ${currentFilterYear === 'all' ? 'selected' : ''}>所有年份</option>
+                        ${yearOptions.map(y => `<option value="${y}" ${y == currentFilterYear ? 'selected' : ''}>${y} 年</option>`).join('')}
+                    </select>
+                    <select id="filter-month" onchange="renderHistoryMode()" class="p-2 border rounded-lg shadow-inner">
+                        <option value="all" ${currentFilterMonth === 'all' ? 'selected' : ''}>所有月份</option>
+                        ${monthOptions.map(m => `<option value="${m}" ${m == currentFilterMonth && currentFilterYear !== 'all' ? 'selected' : ''}>${m} 月</option>`).join('')}
+                    </select>
+                    <button onclick="exportToCsv()" class="bg-green-600 text-white p-2 rounded-lg font-semibold hover:bg-green-700 transition duration-150 shadow-md">匯出 CSV (Excel)</button>
+                </div>
+
+                ${filteredOrders.length === 0 ? `<p class="text-gray-500 p-4 bg-gray-100 rounded-lg">此篩選條件下無歷史工單。</p>` : ''}
+
+                <div class="space-y-4">
+                    ${filteredOrders.map(order => `
+                        <div class="bg-gray-50 p-4 rounded-xl shadow-lg border-l-4 border-orange-500 hover:shadow-xl transition duration-200">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                <p><span class="font-bold text-gray-600">編號:</span> ${order.id}</p>
+                                <p><span class="font-bold text-gray-600">日期:</span> ${formatDate(order.timestamp || order.receiveDate)}</p>
+                                <p><span class="font-bold text-gray-600">車牌:</span> ${order.licensePlate}</p>
+                                <p><span class="font-bold text-gray-600">車款:</span> ${order.carModel}</p>
+                                <p class="col-span-2 md:col-span-1"><span class="font-bold text-gray-600">客戶:</span> ${order.customerName}</p>
+                                <p class="col-span-2 md:col-span-1"><span class="font-bold text-gray-600">業務:</span> ${order.salesRep}</p>
+                                <p class="col-span-2 md:col-span-1"><span class="font-bold text-gray-600">總價:</span> <span class="text-orange-600 font-bold">${formatCurrency(order.finalPrice)}</span></p>
+                                <div class="col-span-2 md:col-span-1 text-right space-x-2">
+                                    <button onclick="editWorkOrder('${order.id}')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded-full hover:bg-blue-700 transition">修改</button>
+                                    <button onclick="deleteWorkOrder('${order.id}')" class="text-xs bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 transition">刪除</button>
+                                    <button onclick="viewWorkOrder('${order.id}')" class="text-xs bg-gray-800 text-white px-3 py-1 rounded-full hover:bg-gray-900 transition">查看報價單</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        window.exportToCsv = () => {
+            const container = document.getElementById('mode-history');
+            const currentFilterYear = container.querySelector('#filter-year')?.value || 'all';
+            const currentFilterMonth = container.querySelector('#filter-month')?.value || 'all';
+
+            let filteredOrders = workOrders.filter(order => {
+                let year, month;
+
+                if (order.id && order.id.length >= 6) {
+                    year = '20' + order.id.substring(0, 2);
+                    month = parseInt(order.id.substring(2, 4), 10);
+                } else {
+                    const date = order.timestamp ? order.timestamp.toDate() : new Date(order.receiveDate);
+                    year = date.getFullYear();
+                    month = date.getMonth() + 1;
+                }
+
+                const yearMatch = currentFilterYear === 'all' || year == currentFilterYear;
+                const monthMatch = currentFilterMonth === 'all' || month == currentFilterMonth;
+                return yearMatch && monthMatch;
+            });
+
+            if (filteredOrders.length === 0) {
+                showMessageModal("匯出失敗", "沒有可匯出的工單資料。");
+                return;
+            }
+
+            let csv = "編號,接車日期,車牌號碼,車款,客戶姓名,聯絡電話,服務業務,服務項目及價格,業務備註,原總價,最終價格,付款方式,發票,統一編號,公司名稱,簽名狀態\n";
+            
+            filteredOrders.forEach(order => {
+                const services = order.services.map(s => `${s.name}: ${s.price}`).join('; ');
+                const row = [
+                    order.id,
+                    formatDate(order.timestamp || order.receiveDate),
+                    order.licensePlate,
+                    order.carModel,
+                    order.customerName,
+                    order.phoneNumber,
+                    order.salesRep,
+                    services,
+                    order.notes || '',
+                    order.basePrice,
+                    order.finalPrice,
+                    PAYMENT_METHODS.find(p => p.id === order.paymentMethod)?.name || '未知',
+                    order.invoiceEnabled ? '是' : '否',
+                    order.taxId || '',
+                    order.companyName || '',
+                    order.isSigned ? '已簽名' : '未簽名'
+                ].map(item => `"${(item + '').replace(/"/g, '""')}"`).join(',');
+                csv += row + "\n";
+            });
+
+            const link = document.createElement('a');
+            link.href = 'data:text/csv;charset=utf-8,\ufeff' + encodeURIComponent(csv);
+            link.download = `AS_TAIPEI_WorkOrders_${currentFilterYear}_${currentFilterMonth}.csv`;
+            link.click();
+            showMessageModal("匯出成功", `已匯出 ${filteredOrders.length} 筆工單資料為 CSV 檔案。`);
+        };
+        
+        window.viewWorkOrder = (orderId) => {
+            const order = workOrders.find(o => o.id === orderId);
+            if (order) {
+                const quoteData = {
+                    ...order,
+                    // 將儲存的 services 轉換回 serviceItems 格式，因為它們的結構是相同的
+                    serviceItems: order.services.map(s => ({
+                        name: s.name,
+                        price: s.price,
+                        type: SERVICE_ITEMS.includes(s.name) ? s.name : '自訂', // 重新判斷是否為 '自訂' 服務
+                        customName: SERVICE_ITEMS.includes(s.name) ? '' : s.name
+                    }))
+                };
+                setMode('quote', quoteData);
+            } else {
+                showMessageModal("錯誤", "找不到該工單資料。");
+            }
+        };
+
+        window.updateBasePriceDisplay = () => {
+            const serviceItems = currentFormData.serviceItems || [];
+            const newPrice = serviceItems.reduce((sum, item) => sum + (parseInt(item.price, 10) || 0), 0);
+            const priceEl = document.getElementById('form-base-price');
+            if (priceEl) {
+                priceEl.textContent = formatCurrency(newPrice);
+            }
+        };
+
+
+        // --- 模式 2: 服務業務填寫 (Form Mode) ---
+
+        const renderFormMode = () => {
+            const container = document.getElementById('mode-form');
+            const today = formatDate(new Date());
+            
+            // 處理新增模式下的 ID 預覽 (如果是新增模式)
+            if (!currentFormData.id && currentFormData.receiveDate === undefined) {
+                currentFormData.id = generateWorkOrderId();
+            }
+            
+            // 處理編輯模式下的 ID 顯示
+            const orderIdDisplay = currentFormData.id ? 
+                `<p class="text-sm font-semibold text-orange-600">工單編號: ${currentFormData.id}</p>` :
+                `<p class="text-sm font-semibold text-gray-500">新增工單</p>`;
+
+            currentFormData.serviceItems = currentFormData.serviceItems || [{ name: '', customName: '', price: 0 }];
+            
+            const { basePrice } = calculateQuote(currentFormData); 
+
+            container.innerHTML = `
+                <h2 class="text-3xl font-bold mb-3 text-gray-800 border-b-2 border-orange-500 pb-2">服務業務填寫</h2>
+                ${orderIdDisplay}
+                <form id="work-order-form" class="space-y-6">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl shadow-inner">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">接車日期 (Receive Date)</label>
+                            <input type="date" id="receiveDate" value="${currentFormData.receiveDate || today}" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">車牌號碼</label>
+                            <input type="text" id="licensePlate" value="${currentFormData.licensePlate || ''}" required placeholder="Ex: ABC-1234" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500 uppercase">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">預計交車 (Delivery Date) (選填)</label>
+                            <input type="date" id="deliveryDate" value="${currentFormData.deliveryDate || ''}" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">服務業務 (Sales Rep)</label>
+                            <select id="salesRep" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                ${SALES_REPS.map(r => `<option value="${r}" ${currentFormData.salesRep === r ? 'selected' : ''}>${r}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-gray-50 rounded-xl shadow-inner space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">客戶姓名</label>
+                                <input type="text" id="customerName" value="${currentFormData.customerName || ''}" required placeholder="客戶全名" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">聯絡電話</label>
+                                <input type="tel" id="phoneNumber" value="${currentFormData.phoneNumber || ''}" required placeholder="09xxxxxxxx" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">車款 (建議輸入)</label>
+                                <input type="text" id="carModelInput" value="${currentFormData.carModel || ''}" list="carModels" required placeholder="Ex: Porsche 911 Carrera, BMW M3..." class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                <datalist id="carModels">
+                                    ${CAR_MODELS_FLAT.map(m => `<option value="${m}">`).join('')}
+                                </datalist>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold text-gray-800 pt-4 border-t border-gray-200">服務項目與價格</h3>
+                    <div id="service-items-container" class="space-y-4"></div>
+                    
+                    <button type="button" onclick="addServiceItem()" class="bg-gray-800 text-white p-2 rounded-lg font-semibold hover:bg-gray-900 transition duration-150 shadow-md flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        新增服務項目
+                    </button>
+
+                    <div class="pt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">業務備註事項 (Notes)</label>
+                        <textarea id="notes" rows="3" placeholder="例如：需特別注意左前葉子板刮痕" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"></textarea>
+                    </div>
+
+                    <div class="text-right p-4 bg-gray-100 rounded-lg shadow-inner">
+                        <p class="text-lg font-bold text-gray-800">基礎服務總價: 
+                            <span id="form-base-price" class="text-orange-600">${formatCurrency(basePrice)}</span>
+                        </p>
+                        <p class="text-sm text-gray-500">此價格為未計算刷卡/發票費用之基礎價格。</p>
+                    </div>
+
+                    <button type="submit" class="w-full bg-orange-500 text-white p-3 rounded-lg font-extrabold text-lg hover:bg-orange-600 transition duration-150 shadow-xl">
+                        產生報價單 &rarr;
+                    </button>
+                </form>
+            `;
+            
+            renderServiceItems();
+
+            document.getElementById('work-order-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                submitFormToQuote();
+            });
+            
+            document.getElementById('notes').value = currentFormData.notes || '';
+        };
+        
+        const renderServiceItems = () => {
+            const container = document.getElementById('service-items-container');
+            container.innerHTML = currentFormData.serviceItems.map((item, index) => {
+                // 確定下拉選單的值
+                const selectedValue = SERVICE_ITEMS.includes(item.name) ? item.name : '自訂';
+
+                return `
+                    <div class="flex flex-wrap gap-3 items-start bg-white p-3 rounded-lg shadow-md border border-gray-200" data-index="${index}">
+                        <div class="flex-grow">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">服務名稱</label>
+                            <select id="service-name-${index}" required onchange="updateServiceItemName(${index}, this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                <option value="" ${item.name === '' ? 'selected' : ''} disabled>請選擇服務項目</option>
+                                ${SERVICE_ITEMS.map(s => `<option value="${s}" ${selectedValue === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                            ${selectedValue === '自訂' ? `
+                                <input type="text" id="custom-name-${index}" value="${item.customName || item.name}" required placeholder="請輸入自訂服務名稱" oninput="updateCustomServiceName(${index}, this.value)" class="mt-2 w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            ` : ''}
+                        </div>
+                        <div class="w-full md:w-auto flex-grow">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">價格 (NT$)</label>
+                            <input type="number" id="service-price-${index}" value="${item.price || ''}" required placeholder="0" min="0" oninput="updateServiceItemPrice(${index}, this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                        <button type="button" onclick="removeServiceItem(${index})" class="mt-4 md:mt-2 text-red-500 hover:text-red-700 transition" aria-label="刪除項目">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            
+            window.updateBasePriceDisplay();
+        };
+        
+        window.updateServiceItemName = (index, name) => {
+            currentFormData.serviceItems[index].name = name;
+            currentFormData.serviceItems[index].customName = ''; // 重設 customName
+            renderServiceItems();
+        };
+        
+        window.updateCustomServiceName = (index, customName) => {
+            currentFormData.serviceItems[index].customName = customName;
+            currentFormData.serviceItems[index].name = customName; // 當是自訂時，實際名稱應為 customName
+        };
+
+        window.updateServiceItemPrice = (index, price) => {
+            currentFormData.serviceItems[index].price = parseInt(price, 10) || 0;
+            updateBasePriceDisplay();
+        };
+
+
+        window.addServiceItem = () => {
+            currentFormData.serviceItems.push({ name: '', customName: '', price: 0 });
+            renderServiceItems();
+        };
+
+        window.removeServiceItem = (index) => {
+            if (currentFormData.serviceItems.length > 1) {
+                currentFormData.serviceItems.splice(index, 1);
+                renderServiceItems();
+            } else {
+                showMessageModal("提示", "至少需要保留一項服務項目。");
+            }
+        };
+
+        const submitFormToQuote = () => {
+            const form = document.getElementById('work-order-form');
+            // 觸發原生 HTML5 驗證
+            if (!form.reportValidity()) {
+                return;
+            }
+
+            const serviceItems = [];
+            let isValidPrice = true;
+            document.querySelectorAll('#service-items-container > div').forEach((itemEl, index) => {
+                const nameSelect = document.getElementById(`service-name-${index}`);
+                const priceInput = document.getElementById(`service-price-${index}`);
+                
+                const selectedValue = nameSelect.value;
+                const price = parseInt(priceInput.value, 10);
+                
+                let actualName = selectedValue;
+                let customName = '';
+
+                if (selectedValue === '自訂') {
+                    const customNameInput = document.getElementById(`custom-name-${index}`);
+                    customName = customNameInput ? customNameInput.value.trim() : '';
+                    if (!customName) {
+                         isValidPrice = false;
+                    }
+                    actualName = customName;
+                }
+                
+                if (isNaN(price) || price < 0 || !actualName) {
+                    isValidPrice = false;
+                }
+
+                serviceItems.push({ 
+                    name: actualName, 
+                    price: price, 
+                });
+            });
+            
+            if (!isValidPrice) {
+                showMessageModal("輸入錯誤", "請確認所有欄位 (包括自訂名稱和價格) 均已填寫，且價格為有效正整數。");
+                return;
+            }
+
+            const data = {
+                // 如果是編輯模式，保留 ID；如果是新增模式，則使用當前已預設的 ID
+                id: currentFormData.id || null, 
+                receiveDate: document.getElementById('receiveDate').value,
+                deliveryDate: document.getElementById('deliveryDate').value,
+                licensePlate: document.getElementById('licensePlate').value.toUpperCase(),
+                salesRep: document.getElementById('salesRep').value,
+                customerName: document.getElementById('customerName').value,
+                phoneNumber: document.getElementById('phoneNumber').value,
+                carModel: document.getElementById('carModelInput').value,
+                notes: document.getElementById('notes').value,
+                serviceItems: serviceItems, // 傳遞處理好的項目
+                paymentMethod: currentFormData.paymentMethod || 'cash', 
+                invoiceEnabled: currentFormData.invoiceEnabled || false,
+                invoiceType: currentFormData.invoiceType || 'two',
+                taxId: currentFormData.taxId || '',
+                companyName: currentFormData.companyName || '',
+                isSigned: currentFormData.isSigned || false,
+                signatureImage: currentFormData.signatureImage || null,
+            };
+            
+            // 如果是新增模式，且已經生成了 ID，則在 data 中保留該 ID
+            if (currentFormData.id && !workOrders.find(o => o.id === currentFormData.id)) {
+                data.id = currentFormData.id;
+            }
+
+            setMode('quote', data);
+        };
+
+
+        // --- 模式 3: 報價單與簽名 (Quote Mode) ---
+        
+        const calculateQuote = (data) => {
+            const serviceItems = data.serviceItems || [];
+            const basePrice = serviceItems.reduce((sum, item) => sum + (parseInt(item.price, 10) || 0), 0);
+            
+            const paymentMethod = PAYMENT_METHODS.find(p => p.id === data.paymentMethod) || PAYMENT_METHODS[0];
+            const isCard = paymentMethod.id === 'card';
+            const isInvoice = data.invoiceEnabled;
+            
+            let totalFeeRate = 0;
+            let feeDetail = "";
+
+            // 計算附加費率
+            if (isCard && isInvoice) {
+                // 刷卡 3% + 發票 5% = 8%
+                totalFeeRate = 0.08;
+                feeDetail = "刷卡+發票 (8%)";
+            } else if (isCard) {
+                // 【修正：超過 5000 才加收 3% 刷卡費】
+                if (basePrice > 5000) {
+                    totalFeeRate = 0.03;
+                    feeDetail = "刷卡手續費 (3%)";
+                } else {
+                    totalFeeRate = 0;
+                    feeDetail = "刷卡手續費 (NT$5000 以下免收)";
+                }
+            } else if (isInvoice) {
+                totalFeeRate = 0.05;
+                feeDetail = "發票稅金 (5%)";
+            } else {
+                totalFeeRate = 0;
+                feeDetail = "無附加費用";
+            }
+
+            const feeAmount = Math.round(basePrice * totalFeeRate);
+            const finalPrice = basePrice + feeAmount;
+
+            return {
+                basePrice: basePrice,
+                totalFeeRate: totalFeeRate,
+                feeAmount: feeAmount,
+                finalPrice: finalPrice,
+                feeDetail: feeDetail
+            };
+        };
+
+        const renderQuoteMode = () => {
+            const container = document.getElementById('mode-quote');
+            const { basePrice, feeAmount, finalPrice, feeDetail, totalFeeRate } = calculateQuote(currentFormData);
+
+            currentFormData.basePrice = basePrice;
+            currentFormData.finalPrice = finalPrice;
+
+            const isSignedView = currentFormData.isSigned || currentFormData.signatureImage;
+            
+            // 【調整】簽名區塊移到報價單選項下方
+            const signatureForm = isSignedView
+                ? `<img src="${currentFormData.signatureImage}" alt="客戶簽名" class="w-full max-h-64 object-contain border border-gray-300 rounded-lg p-2 bg-white" />`
+                : `
+                <div class="p-4 bg-orange-50 border border-orange-500 rounded-xl">
+                    <p class="text-lg font-bold text-orange-700 mb-2">客戶確認簽名 (Signature)</p>
+                    <canvas id="signature-canvas" class="signature-canvas w-full h-48 rounded-lg"></canvas>
+                    <div class="flex justify-between mt-2">
+                        <button type="button" onclick="clearSignature()" class="text-sm text-red-500 hover:text-red-700 transition font-semibold">清除簽名</button>
+                        <button type="button" onclick="confirmSignature()" class="text-sm bg-orange-500 text-white px-3 py-1 rounded-full hover:bg-orange-600 transition duration-150">確認並鎖定報價單</button>
+                    </div>
+                </div>
+            `;
+            
+            const invoiceFields = currentFormData.invoiceEnabled ? `
+                <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">發票資訊：</p>
+                    <div class="flex flex-col space-y-1 text-sm">
+                        <p><span class="font-bold">類型:</span> ${currentFormData.invoiceType === 'three' ? '三聯 (需統編)' : '二聯 (個人)'}</p>
+                        ${currentFormData.invoiceType === 'three' ? `
+                            <p><span class="font-bold">統編:</span> ${currentFormData.taxId || '未填寫'}</p>
+                            <p><span class="font-bold">公司名:</span> ${currentFormData.companyName || '未填寫'}</p>
+                        ` : ''}
+                    </div>
+                </div>
+            ` : '';
+            
+            // 【調整】簽名區塊從右側移到左側下方
+            container.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-2 border-orange-500 pb-2 no-print">報價單確認</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="p-5 bg-gray-50 rounded-xl shadow-md space-y-2">
+                            <p class="text-lg font-bold text-gray-800 border-b pb-1 mb-2">客戶/車輛資訊</p>
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700">
+                                <p><span class="font-semibold text-gray-600">工單編號:</span> ${currentFormData.id || '待儲存'}</p>
+                                <p><span class="font-semibold text-gray-600">客戶姓名:</span> ${currentFormData.customerName}</p>
+                                <p><span class="font-semibold text-gray-600">車牌號碼:</span> ${currentFormData.licensePlate}</p>
+                                <p><span class="font-semibold text-gray-600">聯絡電話:</span> ${currentFormData.phoneNumber}</p>
+                                <p><span class="font-semibold text-gray-600 col-span-2">車款:</span> ${currentFormData.carModel}</p>
+                                <p><span class="font-semibold text-gray-600">接車日期:</span> ${formatDate(currentFormData.receiveDate)}</p>
+                                <p><span class="font-semibold text-gray-600">服務業務:</span> ${currentFormData.salesRep}</p>
+                            </div>
+                        </div>
+
+                        <div class="p-5 bg-white rounded-xl shadow-md">
+                            <p class="text-lg font-bold text-gray-800 border-b pb-1 mb-3">服務項目細節</p>
+                            <ul class="space-y-2">
+                                ${currentFormData.serviceItems.map(item => `
+                                    <li class="flex justify-between border-b border-dashed pb-1">
+                                        <span class="text-gray-700">${item.name}</span>
+                                        <span class="font-semibold text-gray-800">${formatCurrency(item.price)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+                                <p class="text-sm text-gray-600">業務備註: ${currentFormData.notes || '無'}</p>
+                            </div>
+                        </div>
+
+                        <div class="p-5 bg-gray-50 rounded-xl shadow-md space-y-3 ${isSignedView ? 'opacity-60 pointer-events-none' : ''} no-print">
+                            <p class="text-lg font-bold text-gray-800 border-b pb-1 mb-3">報價單選項</p>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">付款方式 (Payment Method)</label>
+                                <div class="flex flex-wrap gap-3">
+                                    ${PAYMENT_METHODS.map(p => `
+                                        <label class="inline-flex items-center">
+                                            <input type="radio" name="paymentMethod" value="${p.id}" ${currentFormData.paymentMethod === p.id ? 'checked' : ''} onchange="updateQuoteOptions(this)" class="h-4 w-4 text-orange-600 border-gray-300 focus:ring-orange-500">
+                                            <span class="ml-2 text-gray-700">${p.name}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="inline-flex items-center">
+                                    <input type="checkbox" id="invoiceEnabled" ${currentFormData.invoiceEnabled ? 'checked' : ''} onchange="updateQuoteOptions(this)" class="h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                                    <span class="ml-2 text-gray-700 font-semibold">啟用發票 (加計 5% 稅金)</span>
+                                </label>
+                                ${currentFormData.invoiceEnabled ? `
+                                    <div class="mt-2 p-3 border rounded-lg bg-white space-y-3">
+                                        <p class="text-xs text-red-500">${totalFeeRate === 0.08 ? '注意：已選擇刷卡+發票，合計將以 8% 服務費計算。' : totalFeeRate === 0.05 ? '注意：僅計算 5% 稅金。' : ''}</p>
+                                        <div class="flex space-x-4">
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="invoiceType" value="two" ${currentFormData.invoiceType === 'two' ? 'checked' : ''} onchange="updateQuoteOptions(this)" class="h-4 w-4 text-orange-600 border-gray-300 focus:ring-orange-500">
+                                                <span class="ml-2 text-gray-700">二聯 (個人)</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="invoiceType" value="three" ${currentFormData.invoiceType === 'three' ? 'checked' : ''} onchange="updateQuoteOptions(this)" class="h-4 w-4 text-orange-600 border-gray-300 focus:ring-orange-500">
+                                                <span class="ml-2 text-gray-700">三聯 (公司)</span>
+                                            </label>
+                                        </div>
+                                        ${currentFormData.invoiceType === 'three' ? `
+                                            <input type="text" id="taxId" value="${currentFormData.taxId || ''}" required placeholder="統一編號" oninput="updateQuoteOptions(this)" class="w-full p-2 border rounded-lg">
+                                            <input type="text" id="companyName" value="${currentFormData.companyName || ''}" required placeholder="公司名稱" oninput="updateQuoteOptions(this)" class="w-full p-2 border rounded-lg">
+                                        ` : ''}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <!-- 【調整】將簽名區塊放在左側下方 -->
+                        <div class="p-4 bg-white rounded-xl shadow-xl">
+                            ${signatureForm}
+                            ${invoiceFields}
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="p-6 bg-gray-800 text-white rounded-xl shadow-xl sticky top-4">
+                            <p class="text-xl font-bold mb-3 border-b border-gray-600 pb-2">報價總覽</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm"><span>服務總價:</span><span>${formatCurrency(basePrice)}</span></div>
+                                <div class="flex justify-between text-sm">
+                                    <span>附加費用 (${feeDetail}):</span>
+                                    <span class="text-orange-400 font-semibold">${formatCurrency(feeAmount)}</span>
+                                </div>
+                                <div class="flex justify-between pt-3 border-t border-gray-600 text-2xl font-extrabold text-orange-400">
+                                    <span>最終總價:</span>
+                                    <span>${formatCurrency(finalPrice)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 no-print">
+                            ${isSignedView ? `
+                                <button onclick="printQuote()" class="w-full bg-gray-700 text-white p-3 rounded-lg font-bold hover:bg-gray-900 transition duration-150 shadow-md flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2M7 10h10" /></svg>
+                                    下載報價單 (PDF)
+                                </button>
+                                <button onclick="setMode('history')" class="w-full bg-orange-500 text-white p-3 rounded-lg font-bold hover:bg-orange-600 transition duration-150 shadow-md">完成，返回歷史工單</button>
+                            ` : `
+                                <button onclick="saveWorkOrder()" class="w-full bg-orange-500 text-white p-3 rounded-lg font-extrabold text-lg hover:bg-orange-600 transition duration-150 shadow-xl">
+                                    保存工單 (待簽名)
+                                </button>
+                                <button onclick="setMode('form')" class="w-full bg-gray-200 text-gray-700 p-3 rounded-lg font-bold hover:bg-gray-300 transition duration-150">返回編輯</button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (!isSignedView) {
+                initSignaturePad();
+            }
+        };
+
+        let signatureCanvas = null;
+        let ctx = null;
+        let isDrawing = false;
+        
+        const initSignaturePad = () => {
+            signatureCanvas = document.getElementById('signature-canvas');
+            if (!signatureCanvas) return;
+            
+            ctx = signatureCanvas.getContext('2d');
+            
+            const resizeCanvas = () => {
+                const rect = signatureCanvas.getBoundingClientRect();
+                signatureCanvas.width = rect.width;
+                signatureCanvas.height = rect.height;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#000000';
+            };
+
+            resizeCanvas();
+            // 由於簽名板寬度是 100%，因此需要監聽 resize 以確保簽名板尺寸正確
+            window.removeEventListener('resize', resizeCanvas); 
+            window.addEventListener('resize', resizeCanvas);
+            
+            window.clearSignature = () => {
+                ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+                currentFormData.signatureImage = null;
+                currentFormData.isSigned = false;
+            };
+
+            const startDraw = (e) => {
+                e.preventDefault();
+                isDrawing = true;
+                const { x, y } = getCoordinates(e);
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            };
+
+            const draw = (e) => {
+                if (!isDrawing) return;
+                e.preventDefault();
+                const { x, y } = getCoordinates(e);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+            };
+
+            const stopDraw = () => {
+                if (!isDrawing) return;
+                isDrawing = false;
+                ctx.closePath();
+            };
+            
+            const getCoordinates = (e) => {
+                const rect = signatureCanvas.getBoundingClientRect();
+                let clientX, clientY;
+
+                if (e.touches && e.touches.length > 0) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            };
+
+            signatureCanvas.addEventListener('mousedown', startDraw);
+            signatureCanvas.addEventListener('mousemove', draw);
+            signatureCanvas.addEventListener('mouseup', stopDraw);
+            signatureCanvas.addEventListener('mouseleave', stopDraw);
+
+            signatureCanvas.addEventListener('touchstart', startDraw, { passive: false });
+            signatureCanvas.addEventListener('touchmove', draw, { passive: false });
+            signatureCanvas.addEventListener('touchend', stopDraw);
+        };
+
+
+        window.confirmSignature = () => {
+            if (!signatureCanvas || !ctx) {
+                showMessageModal("錯誤", "簽名板尚未準備好。");
+                return;
+            }
+            
+            const data = ctx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height).data;
+            const isCanvasEmpty = !data.some(channel => channel !== 0);
+
+            if (isCanvasEmpty) {
+                showMessageModal("提示", "請先在畫布上簽名。");
+                return;
+            }
+
+            currentFormData.signatureImage = signatureCanvas.toDataURL('image/png');
+            currentFormData.isSigned = true;
+            
+            // 簽名後直接儲存並鎖定
+            saveWorkOrder(true);
+        };
+
+        window.updateQuoteOptions = (el) => {
+            if (el.id === 'invoiceEnabled') {
+                currentFormData.invoiceEnabled = el.checked;
+            } else if (el.name === 'paymentMethod') {
+                currentFormData.paymentMethod = el.value;
+            } else if (el.name === 'invoiceType') {
+                currentFormData.invoiceType = el.value;
+            } else if (el.id === 'taxId') {
+                currentFormData.taxId = el.value;
+            } else if (el.id === 'companyName') {
+                currentFormData.companyName = el.value;
+            }
+            
+            renderQuoteMode();
+        };
+
+        window.saveWorkOrder = async (fromSign = false) => {
+            if (!db || !isAuthReady) {
+                showMessageModal("錯誤", "資料庫尚未初始化，請稍候。");
+                return;
+            }
+
+            // 如果是新增模式且尚未賦予 ID，則生成一個 ID
+            if (!currentFormData.id || (!workOrders.find(o => o.id === currentFormData.id) && currentFormData.id.includes('-'))) {
+                 currentFormData.id = generateWorkOrderId();
+            }
+
+            const { basePrice, finalPrice } = calculateQuote(currentFormData);
+            
+            // 使用固定的 App ID，因為我們使用自訂的 Firebase Config
+            const appId = 'as-taipei-app'; 
+
+            const dataToSave = {
+                receiveDate: currentFormData.receiveDate,
+                deliveryDate: currentFormData.deliveryDate || null,
+                licensePlate: currentFormData.licensePlate,
+                salesRep: currentFormData.salesRep,
+                customerName: currentFormData.customerName,
+                phoneNumber: currentFormData.phoneNumber,
+                carModel: currentFormData.carModel,
+                notes: currentFormData.notes,
+                // 儲存時只儲存名稱和價格
+                services: currentFormData.serviceItems.map(s => ({
+                    name: s.name,
+                    price: s.price
+                })),
+                
+                basePrice: basePrice,
+                finalPrice: finalPrice,
+                paymentMethod: currentFormData.paymentMethod,
+                invoiceEnabled: currentFormData.invoiceEnabled,
+                invoiceType: currentFormData.invoiceType,
+                taxId: currentFormData.taxId || null,
+                companyName: currentFormData.companyName || null,
+                
+                isSigned: currentFormData.isSigned,
+                signatureImage: currentFormData.signatureImage || null,
+                
+                userId: userId,
+                // 只有新增時才更新 timestamp
+                timestamp: currentFormData.timestamp || serverTimestamp(), // 保持 timestamp 不變或在新增時賦予
+            };
+
+            try {
+                // 不使用 addDoc 讓 Firebase 自動生成 ID，而是強制使用我們的日期 ID 作為 document ID
+                const docRef = doc(db, `artifacts/${appId}/public/data/workOrders`, currentFormData.id);
+                
+                // setDoc 用於新增或更新，使用 merge: true 確保不會覆蓋整個文件
+                await setDoc(docRef, dataToSave, { merge: true });
+                
+                const messageId = currentFormData.id;
+                currentFormData.id = messageId; // 確保 currentFormData 中有最新的 ID
+
+                showMessageModal(
+                    currentFormData.timestamp ? "更新成功" : "儲存成功", 
+                    `工單 [${messageId}] 已成功${currentFormData.timestamp ? '更新' : '儲存'}${fromSign ? '並完成簽名確認。' : '。'}`
+                );
+                
+                // 更新 timestamp，標記為已存在
+                if (!currentFormData.timestamp) {
+                    currentFormData.timestamp = serverTimestamp();
+                }
+
+                if (fromSign) {
+                    renderQuoteMode();
+                } else if (currentMode === 'quote') {
+                    renderQuoteMode();
+                }
+
+            } catch (error) {
+                console.error("儲存工單失敗:", error);
+                showMessageModal("儲存失敗", `儲存工單至資料庫時發生錯誤: ${error.message}`);
+            }
+        };
+
+        window.printQuote = () => {
+            const { basePrice, feeAmount, finalPrice, feeDetail } = calculateQuote(currentFormData);
+
+            const servicesHtml = currentFormData.serviceItems.map(item => `
+                <tr class="border-b border-gray-300">
+                    <td class="py-2 pl-3 text-left">${item.name}</td>
+                    <td class="py-2 pr-3 text-right">${formatCurrency(item.price)}</td>
+                </tr>
+            `).join('');
+
+            const invoiceDetail = currentFormData.invoiceEnabled ? `
+                <div style="margin-top: 10px; padding: 10px; border: 1px dashed #ccc; border-radius: 4px; background-color: #fffaf0;">
+                    <strong>發票資訊:</strong> ${currentFormData.invoiceType === 'three' ? `三聯 | 統編: ${currentFormData.taxId || 'N/A'} | 公司: ${currentFormData.companyName || 'N/A'}` : '二聯 (個人)'}
+                </div>
+            ` : '';
+
+            // 【PDF 專業版強化】
+            const printHtml = `
+                <html>
+                <head>
+                    <title>AS TAIPEI 專業汽車服務報價單</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+                    <style>
+                        /* 專業版樣式調整 */
+                        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; margin: 0; padding: 40px; color: #1f2937; font-size: 13px; background-color: #fff;}
+                        .container { max-width: 800px; margin: 0 auto; padding: 0; }
+                        .header { text-align: center; border-bottom: 5px solid #f97316; padding-bottom: 20px; margin-bottom: 30px; }
+                        .header-logo { max-width: 200px; height: auto; margin-bottom: 10px; }
+                        h1 { color: #1f2937; font-size: 32px; margin: 5px 0 0; font-weight: 900; }
+                        .header-info { font-size: 16px; color: #f97316; font-weight: 700; }
+                        .shop-details { font-size: 11px; margin-top: 10px; color: #666; display: flex; justify-content: space-between; padding: 0 50px;}
+                        .subtitle { font-size: 18px; font-weight: bold; margin: 25px 0 10px; border-left: 5px solid #f97316; padding-left: 10px; color: #1f2937; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 13px; }
+                        th, td { padding: 10px; text-align: left; }
+                        .info-table td { width: 50%; border: none; padding: 6px 0; border-bottom: 1px dotted #ccc; }
+                        
+                        /* 服務項目表格樣式 */
+                        .service-table thead th { background-color: #1f2937; color: white; text-align: left; }
+                        .service-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+                        .service-table td:last-child { text-align: right; font-weight: bold; }
+                        
+                        .total-box { background-color: #e5e7eb; padding: 20px; border-radius: 8px; border: 1px solid #ddd; }
+                        .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+                        .total-final { font-size: 24px; font-weight: 900; color: #f97316; border-top: 2px solid #aaa; padding-top: 15px; margin-top: 15px; }
+                        .notes { margin-top: 20px; font-size: 12px; color: #555; padding: 10px; background-color: #fff; border-radius: 4px; border: 1px solid #eee; }
+                        
+                        .signature-area { margin-top: 40px; border-top: 2px dashed #aaa; padding-top: 20px; display: flex; justify-content: space-between;}
+                        .signature-box { width: 45%; }
+                        .signature-img { max-width: 100%; height: 100px; object-fit: contain; border: 1px solid #ccc; padding: 5px; margin-top: 10px;}
+                        .terms { font-size: 10px; color: #888; margin-top: 20px; line-height: 1.5; border: 1px solid #eee; padding: 10px; border-radius: 4px;}
+                        .footer { margin-top: 40px; text-align: center; border-top: 1px solid #ccc; padding-top: 15px; color: #888; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <!-- Professional Header with Logo -->
+                        <div class="header">
+                            <img src="${SHOP_INFO.logoUrl}" alt="${SHOP_INFO.name} Logo" class="header-logo" style="display: block; margin: 0 auto;">
+                            <h1>${SHOP_INFO.name}</h1>
+                            <div class="header-info">專業汽車服務報價單 (Work Order)</div>
+                            <div class="shop-details">
+                                <div>地址: ${SHOP_INFO.address}</div>
+                                <div>電話: ${SHOP_INFO.phone}</div>
+                                <div>工單編號: <strong>${currentFormData.id || '待儲存'}</strong></div>
+                            </div>
+                        </div>
+                        <!-- End Header -->
+
+                        <div class="subtitle">客戶與車輛資訊 Client & Vehicle Information</div>
+                        <table class="info-table">
+                            <tr><td><strong>客戶姓名:</strong> ${currentFormData.customerName}</td><td><strong>聯絡電話:</strong> ${currentFormData.phoneNumber}</td></tr>
+                            <tr><td><strong>車牌號碼:</strong> ${currentFormData.licensePlate}</td><td><strong>服務業務:</strong> ${currentFormData.salesRep}</td></tr>
+                            <tr><td><strong>車款:</strong> ${currentFormData.carModel}</td><td><strong>接車日期:</strong> ${formatDate(currentFormData.receiveDate)}</td></tr>
+                            <tr><td><strong>付款方式:</strong> ${PAYMENT_METHODS.find(p => p.id === currentFormData.paymentMethod)?.name || '未知'}</td><td><strong>預計交車:</strong> ${currentFormData.deliveryDate || 'N/A'}</td></tr>
+                        </table>
+
+                        <div class="subtitle">服務項目與費用明細 Service Items & Details</div>
+                        <table class="service-table" style="border: 1px solid #ccc;">
+                            <thead>
+                                <tr><th class="pl-3" style="width: 70%;">服務名稱 (Service Name)</th><th class="pr-3">價格 (NT$)</th></tr>
+                            </thead>
+                            <tbody>
+                                ${servicesHtml}
+                            </tbody>
+                        </table>
+
+                        <div class="total-box">
+                            <div class="total-row"><span>服務基礎總價 (Base Price):</span><span>${formatCurrency(basePrice)}</span></div>
+                            <div class="total-row"><span>附加費用 (${feeDetail}):</span><span style="color: #f97316;">+ ${formatCurrency(feeAmount)}</span></div>
+                            <div class="total-final"><span>最終總價 (Final Total):</span><span>${formatCurrency(finalPrice)}</span></div>
+                            
+                            <div class="notes">
+                                <strong>業務備註 (Notes):</strong> ${currentFormData.notes || '無'}
+                                ${invoiceDetail}
+                            </div>
+                        </div>
+
+                        <div class="signature-area">
+                            <div class="signature-box">
+                                <p style="font-weight: bold; margin-bottom: 5px; color: #1f2937;">客戶確認簽名 (Client Signature):</p>
+                                ${currentFormData.signatureImage ? `<img class="signature-img" src="${currentFormData.signatureImage}" alt="客戶簽名" />` : '<div style="height: 100px; border: 1px dashed #f97316; text-align: center; line-height: 100px; color: #f97316; background-color: #fffaf0;">未簽名 (此為草稿，正式報價單需簽名)</div>'}
+                            </div>
+                            <div class="signature-box">
+                                <p style="font-weight: bold; margin-bottom: 5px; color: #1f2937;">服務業務簽名 (Sales Rep Signature):</p>
+                                <div style="height: 100px; border-bottom: 1px solid #333; margin-top: 10px;"></div>
+                                <p style="text-align: center; font-size: 12px; margin-top: 5px;">${currentFormData.salesRep}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="terms">
+                            <strong>服務條款簡述:</strong> 客戶確認以上報價與服務內容無誤，並同意依此工單進行服務。所有報價有效期為 30 天，最終交車時間以業務實際通知為準。
+                        </div>
+
+                        <div class="footer">
+                            AS TAIPEI 專業汽車服務系統 | 感謝您的支持 | 版權所有 (C) 2024
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            const printWindow = window.open('', '', 'height=800,width=800');
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            // 觸發瀏覽器的列印/PDF儲存功能
+            printWindow.print();
+        };
+
+        // 啟動應用程式
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
