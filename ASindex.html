@@ -89,10 +89,11 @@
     
     <!-- Firebase 核心及 Firestore, Auth 模組 -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // *** 修復 404 錯誤：將 Firebase SDK 版本更新至 10.12.2 ***
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // setLogLevel('Debug'); // 開發時可開啟
 
@@ -252,11 +253,7 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // =========================================================================
-                // 【錯誤修復】
-                // 強制使用匿名登入 (signInAnonymously) 來繞過 custom-token-mismatch 錯誤。
-                // 這樣能確保應用程式成功初始化，並連線到自訂的 Firestore 專案。
-                // =========================================================================
+                // 強制使用匿名登入 (signInAnonymously) 來避免 custom-token-mismatch 錯誤。
                 await signInAnonymously(auth);
 
                 // 監聽登入狀態
