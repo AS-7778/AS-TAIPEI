@@ -827,14 +827,14 @@
 
             // 計算附加費率
             if (isCard && isInvoice) {
-                // 刷卡 3% + 發票 5% = 8%
-                totalFeeRate = 0.08;
-                feeDetail = "刷卡+發票 (8%)";
+                // 刷卡 0% + 發票 5% = 5%
+                totalFeeRate = 0.05;
+                feeDetail = "刷卡+發票 (5%)";
             } else if (isCard) {
-                // 【修正：超過 5000 才加收 3% 刷卡費】
+                // 【修正：超過 5000 才加收 5% 刷卡費】
                 if (basePrice > 5000) {
-                    totalFeeRate = 0.03;
-                    feeDetail = "刷卡手續費 (3%)";
+                    totalFeeRate = 0.05;
+                    feeDetail = "刷卡手續費 (5%)";
                 } else {
                     totalFeeRate = 0;
                     feeDetail = "刷卡手續費 (NT$5000 以下免收)";
@@ -951,7 +951,7 @@
                                 </label>
                                 ${currentFormData.invoiceEnabled ? `
                                     <div class="mt-2 p-3 border rounded-lg bg-white space-y-3">
-                                        <p class="text-xs text-red-500">${totalFeeRate === 0.08 ? '注意：已選擇刷卡+發票，合計將以 8% 服務費計算。' : totalFeeRate === 0.05 ? '注意：僅計算 5% 稅金。' : ''}</p>
+                                        <p class="text-xs text-red-500">${totalFeeRate === 0.05 ? '注意：已選擇刷卡+發票，合計將以 5% 服務費計算。' : totalFeeRate === 0.05 ? '注意：僅計算 5% 稅金。' : ''}</p>
                                         <div class="flex space-x-4">
                                             <label class="inline-flex items-center">
                                                 <input type="radio" name="invoiceType" value="two" ${currentFormData.invoiceType === 'two' ? 'checked' : ''} onchange="updateQuoteOptions(this)" class="h-4 w-4 text-orange-600 border-gray-300 focus:ring-orange-500">
@@ -1350,3 +1350,4 @@
 </body>
 
 </html>
+
