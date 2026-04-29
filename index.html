@@ -21,13 +21,13 @@
                 border: none !important; 
                 width: 100% !important; 
                 max-width: 100% !important; 
-                padding: 20px !important; 
+                padding: 10px !important; 
                 margin: 0 !important; 
             }
             .print-header { display: flex !important; }
             main { box-shadow: none !important; border: none !important; padding: 0 !important; }
-            /* 確保顏色在列印時顯示 */
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .quote-grid { display: block !important; } /* 列印時不要用 grid 防止版面跑掉 */
         }
     </style>
 </head>
@@ -128,7 +128,7 @@
                     paymentMethod: 'cash',
                     invoiceEnabled: false,
                     isSigned: false,
-                    notes: '' // 確保備註在新建時被初始化
+                    notes: ''
                 };
             } else if (data) {
                 window.currentFormData = data;
@@ -220,6 +220,7 @@
                 customName: SERVICE_ITEMS.includes(s.name) ? '' : s.name,
                 price: s.price
             })) : [{ name: '', customName: '', price: 0 }];
+            editData.notes = order.notes || ''; // 確保載入備註
             window.setMode('form', editData);
         };
 
@@ -227,6 +228,7 @@
             const order = window.workOrders.find(o => o.id === id);
             const viewData = JSON.parse(JSON.stringify(order));
             viewData.serviceItems = order.services || []; 
+            viewData.notes = order.notes || ''; // 確保載入備註
             window.setMode('quote', viewData);
         };
 
@@ -255,7 +257,7 @@
                         <div id="service-items-container" class="space-y-3"></div>
                         <button type="button" onclick="window.addServiceItem()" class="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 hover:border-orange-500 transition-all font-bold">+ 新增服務項目</button>
                     </div>
-                    <!-- 備註欄位 -->
+
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-gray-500 uppercase tracking-widest">備註事項 (Notes)</label>
                         <textarea id="notes" rows="3" placeholder="請輸入特殊需求或車況備註..." class="w-full p-4 border-2 border-gray-200 rounded-xl bg-white shadow-sm focus:border-orange-500 outline-none text-gray-700">${window.currentFormData.notes || ''}</textarea>
@@ -275,6 +277,7 @@
                 window.currentFormData.customerName = document.getElementById('customerName').value;
                 window.currentFormData.phoneNumber = document.getElementById('phoneNumber').value;
                 window.currentFormData.carBrand = document.getElementById('carBrand').value;
+                window.currentFormData.notes = document.getElementById('notes').value; // 儲存備註
                 
                 if (window.currentFormData.carBrand === "其他 / 自訂輸入") {
                     const customInfo = document.getElementById('customCarInfo');
@@ -289,7 +292,6 @@
                         window.currentFormData.carModel = `${window.currentFormData.carBrand} ${selM}`;
                     }
                 }
-                window.currentFormData.notes = document.getElementById('notes').value;
                 window.setMode('quote');
             };
         };
@@ -366,7 +368,7 @@
                     <div class="text-right"><p class="text-xl font-mono font-black text-gray-800">${window.currentFormData.id}</p></div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-10 quote-grid">
                     <div class="lg:col-span-3 space-y-8">
                         <div class="grid grid-cols-2 gap-8 bg-gray-50 p-8 rounded-3xl border border-gray-100">
                             <div class="space-y-2"><label class="text-xs font-bold text-gray-400 uppercase tracking-widest">客戶 CUSTOMER</label><p class="text-2xl font-black text-gray-800">${window.currentFormData.customerName || '一般客戶'}</p><p class="text-lg font-medium text-gray-500 font-mono">${window.currentFormData.phoneNumber || ''}</p></div>
@@ -387,13 +389,11 @@
                             </table>
                         </div>
 
-                        <!-- 備註顯示 -->
-                        ${window.currentFormData.notes ? `
-                        <div class="p-6 bg-gray-50 border-l-4 border-orange-500 rounded-xl">
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">備註事項 NOTES</p>
-                            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-medium">${window.currentFormData.notes}</p>
+                        <!-- 重要：備註區塊 -->
+                        <div class="p-6 bg-gray-50 border-l-8 border-orange-500 rounded-xl shadow-inner">
+                            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">備註事項 NOTES</p>
+                            <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">${window.currentFormData.notes || '無特殊備註'}</p>
                         </div>
-                        ` : ''}
 
                         <div class="p-8 border-4 border-orange-100 rounded-3xl bg-orange-50 shadow-sm space-y-4">
                             <div class="flex justify-between items-center border-b border-orange-200 pb-3">
