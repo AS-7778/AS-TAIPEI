@@ -25,7 +25,7 @@
                 margin: 0 !important; 
             }
             .print-header { display: flex !important; }
-            main { box-shadow: none !important; border: none !important; }
+            main { box-shadow: none !important; border: none !important; padding: 0 !important; }
             /* 確保顏色在列印時顯示 */
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
@@ -127,7 +127,8 @@
                     serviceItems: [{ name: '', customName: '', price: 0 }],
                     paymentMethod: 'cash',
                     invoiceEnabled: false,
-                    isSigned: false
+                    isSigned: false,
+                    notes: '' // 確保備註在新建時被初始化
                 };
             } else if (data) {
                 window.currentFormData = data;
@@ -254,7 +255,12 @@
                         <div id="service-items-container" class="space-y-3"></div>
                         <button type="button" onclick="window.addServiceItem()" class="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 hover:border-orange-500 transition-all font-bold">+ 新增服務項目</button>
                     </div>
-                    <div class="space-y-1"><label class="text-xs font-bold text-gray-500">備註 (Notes)</label><textarea id="notes" rows="3" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm outline-none">${window.currentFormData.notes || ''}</textarea></div>
+                    <!-- 備註欄位 -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-widest">備註事項 (Notes)</label>
+                        <textarea id="notes" rows="3" placeholder="請輸入特殊需求或車況備註..." class="w-full p-4 border-2 border-gray-200 rounded-xl bg-white shadow-sm focus:border-orange-500 outline-none text-gray-700">${window.currentFormData.notes || ''}</textarea>
+                    </div>
+
                     <div class="text-right p-8 bg-gray-900 text-white rounded-2xl shadow-xl flex justify-between items-center"><span class="text-gray-400 font-bold tracking-widest uppercase">目前合計</span><span id="form-base-price" class="text-4xl font-extrabold text-orange-500">NT$ 0</span></div>
                     <button type="submit" class="w-full bg-orange-500 text-white py-5 rounded-xl font-bold text-2xl shadow-xl hover:bg-orange-600 transition-all">預覽報價單 &rarr;</button>
                 </form>
@@ -351,8 +357,8 @@
             container.innerHTML = `
                 <!-- 列印專用抬頭 -->
                 <div class="hidden print-header flex justify-between items-center border-b-2 border-gray-800 pb-4 mb-4">
-                    <div><h1 class="text-3xl font-black text-orange-500">AS TAIPEI</h1></div>
-                    <div class="text-right"><h2 class="text-xl font-bold">服務確認報價單</h2><p class="text-xs font-mono">NO: ${window.currentFormData.id}</p></div>
+                    <div><h1 class="text-3xl font-black text-orange-500 italic">AS TAIPEI</h1></div>
+                    <div class="text-right"><h2 class="text-xl font-bold">服務確認報價單</h2><p class="text-xs font-mono text-gray-500">NO: ${window.currentFormData.id}</p></div>
                 </div>
                 
                 <div class="flex justify-between items-end mb-8 no-print">
@@ -363,8 +369,8 @@
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
                     <div class="lg:col-span-3 space-y-8">
                         <div class="grid grid-cols-2 gap-8 bg-gray-50 p-8 rounded-3xl border border-gray-100">
-                            <div class="space-y-2"><label class="text-xs font-bold text-gray-400 uppercase">客戶 CUSTOMER</label><p class="text-2xl font-black text-gray-800">${window.currentFormData.customerName || '未填寫'}</p><p class="text-lg font-medium text-gray-500">${window.currentFormData.phoneNumber || ''}</p></div>
-                            <div class="space-y-2 text-right"><label class="text-xs font-bold text-gray-400 uppercase">車輛 VEHICLE</label><p class="text-2xl font-black text-orange-600">${window.currentFormData.licensePlate || 'N/A'}</p><p class="text-lg font-medium text-gray-500">${window.currentFormData.carModel || ''}</p></div>
+                            <div class="space-y-2"><label class="text-xs font-bold text-gray-400 uppercase tracking-widest">客戶 CUSTOMER</label><p class="text-2xl font-black text-gray-800">${window.currentFormData.customerName || '一般客戶'}</p><p class="text-lg font-medium text-gray-500 font-mono">${window.currentFormData.phoneNumber || ''}</p></div>
+                            <div class="space-y-2 text-right"><label class="text-xs font-bold text-gray-400 uppercase tracking-widest">車輛 VEHICLE</label><p class="text-2xl font-black text-orange-600">${window.currentFormData.licensePlate || 'N/A'}</p><p class="text-lg font-medium text-gray-500">${window.currentFormData.carModel || ''}</p></div>
                         </div>
 
                         <div class="rounded-3xl border-2 border-gray-100 overflow-hidden shadow-sm">
@@ -374,19 +380,27 @@
                                     ${window.currentFormData.serviceItems.map(item => `<tr class="bg-white"><td class="p-5 font-bold text-gray-700">${item.name === '自訂' ? item.customName : item.name}</td><td class="p-5 text-right font-mono font-black text-gray-900 text-lg">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
                                 </tbody>
                                 <tfoot class="bg-orange-50 border-t-4 border-orange-200">
-                                    <tr class="text-gray-500"><td class="p-4 px-6 text-right font-bold">項目小計</td><td class="p-4 px-6 text-right font-mono font-bold">NT$ ${base.toLocaleString()}</td></tr>
-                                    <tr class="text-gray-500"><td class="p-4 px-6 text-right font-bold">手續費/稅額 (5%)</td><td class="p-4 px-6 text-right font-mono font-bold">NT$ ${fee.toLocaleString()}</td></tr>
-                                    <tr class="text-orange-600"><td class="p-6 text-right text-2xl font-black">應付總額</td><td class="p-6 text-right text-3xl font-black font-mono">NT$ ${final.toLocaleString()}</td></tr>
+                                    <tr class="text-gray-500"><td class="p-4 px-6 text-right font-bold text-xs">項目小計</td><td class="p-4 px-6 text-right font-mono font-bold">NT$ ${base.toLocaleString()}</td></tr>
+                                    <tr class="text-gray-500"><td class="p-4 px-6 text-right font-bold text-xs">手續費/稅額 (5%)</td><td class="p-4 px-6 text-right font-mono font-bold">NT$ ${fee.toLocaleString()}</td></tr>
+                                    <tr class="text-orange-600"><td class="p-6 text-right text-2xl font-black">應付總額 TOTAL</td><td class="p-6 text-right text-3xl font-black font-mono">NT$ ${final.toLocaleString()}</td></tr>
                                 </tfoot>
                             </table>
                         </div>
 
+                        <!-- 備註顯示 -->
+                        ${window.currentFormData.notes ? `
+                        <div class="p-6 bg-gray-50 border-l-4 border-orange-500 rounded-xl">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">備註事項 NOTES</p>
+                            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-medium">${window.currentFormData.notes}</p>
+                        </div>
+                        ` : ''}
+
                         <div class="p-8 border-4 border-orange-100 rounded-3xl bg-orange-50 shadow-sm space-y-4">
                             <div class="flex justify-between items-center border-b border-orange-200 pb-3">
-                                <p class="text-sm font-black text-orange-500 uppercase">客戶簽收 SIGNATURE ${window.currentFormData.isSigned ? '' : '<span class="ml-2 text-xs bg-yellow-400 text-white px-2 py-0.5 rounded no-print">未簽名待補</span>'}</p>
+                                <p class="text-sm font-black text-orange-500 uppercase tracking-widest">客戶簽收 SIGNATURE ${window.currentFormData.isSigned ? '' : '<span class="ml-2 text-xs bg-yellow-400 text-white px-2 py-0.5 rounded no-print">未簽名待補</span>'}</p>
                                 <div class="flex gap-3 no-print">
-                                    <button onclick="window.clearSig()" class="text-xs px-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg font-bold hover:bg-gray-50">重填</button>
-                                    <button onclick="window.saveSig()" class="text-xs px-4 py-2 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600">確認簽名</button>
+                                    <button onclick="window.clearSig()" class="text-xs px-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg font-bold hover:bg-gray-50 transition-all">重簽</button>
+                                    <button onclick="window.saveSig()" class="text-xs px-4 py-2 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600 transition-all">確認簽名</button>
                                 </div>
                             </div>
                             <div class="bg-white border-2 border-orange-200 rounded-2xl overflow-hidden shadow-inner h-80 relative">
@@ -394,15 +408,15 @@
                                     `<img src="${window.currentFormData.signatureImage}" class="w-full h-full object-contain">` : 
                                     `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`
                                 }
-                                ${!window.currentFormData.isSigned ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10"><p class="text-6xl font-black">請在此簽名</p></div>` : ''}
+                                ${!window.currentFormData.isSigned ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10"><p class="text-6xl font-black uppercase">Please Sign</p></div>` : ''}
                             </div>
-                            <p class="text-[10px] text-gray-400 text-center">本人已確認上述服務項目與金額無誤，同意進行施工。</p>
+                            <p class="text-[10px] text-gray-400 text-center leading-relaxed">本人已確認上述服務項目、金額與車況備註無誤，同意進行施工。</p>
                         </div>
                     </div>
 
                     <div class="lg:col-span-1 space-y-6 no-print">
                         <div class="p-6 border-2 border-gray-100 rounded-3xl bg-white shadow-lg space-y-6">
-                            <p class="text-xs font-black text-gray-400 uppercase border-b pb-3">結帳設定</p>
+                            <p class="text-xs font-black text-gray-400 uppercase border-b pb-3 tracking-widest">結帳設定</p>
                             <div class="space-y-4">
                                 <div class="space-y-1"><span class="text-xs font-bold text-gray-500">支付方式</span>
                                     <select onchange="window.currentFormData.paymentMethod=this.value;window.renderQuoteMode();" class="w-full p-3 border-2 border-gray-100 rounded-xl font-bold bg-gray-50">
@@ -420,8 +434,8 @@
 
                         <div class="flex flex-col gap-3">
                             <button onclick="window.saveToFirebase()" class="bg-gray-900 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-black transition-all">💾 儲存工單</button>
-                            <button onclick="window.triggerPrint();" class="bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700">🖨️ 列印報價單</button>
-                            <button onclick="window.setMode('form')" class="bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200">修改內容</button>
+                            <button onclick="window.triggerPrint();" class="bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all">🖨️ 列印報價單</button>
+                            <button onclick="window.setMode('form')" class="bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all">修改內容</button>
                         </div>
                     </div>
                 </div>
@@ -429,11 +443,7 @@
             if(!window.currentFormData.isSigned) setTimeout(initSig, 100);
         };
 
-        // 修復列印邏輯
-        window.triggerPrint = () => {
-            // 直接觸發 window.print()，依賴 CSS @media print 進行隱藏
-            window.print();
-        };
+        window.triggerPrint = () => { window.print(); };
 
         let sigC, sigX, drawing = false;
         const initSig = () => {
@@ -450,6 +460,7 @@
             sigC.addEventListener('touchmove', (ev)=>{ev.preventDefault(); m(ev);}, {passive:false});
             sigC.addEventListener('touchend', stop);
         };
+
         window.clearSig = () => { window.currentFormData.isSigned=false; window.currentFormData.signatureImage=null; window.renderQuoteMode(); };
         window.saveSig = () => { const canvas = document.getElementById('sig-canvas'); if(!canvas) return; window.currentFormData.signatureImage = canvas.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
 
