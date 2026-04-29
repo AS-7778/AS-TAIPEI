@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AS TAIPEI 服務系統 v1.6.4</title>
+    <title>AS TAIPEI 服務系統 v1.6.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <style>
@@ -12,7 +12,6 @@
         .signature-canvas { border: 2px solid var(--primary-orange); background-color: #fff; touch-action: none; cursor: crosshair; }
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
-        /* 列印樣式優化 */
         @media print {
             body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
             .no-print { display: none !important; }
@@ -27,7 +26,7 @@
             .print-header { display: flex !important; }
             main { box-shadow: none !important; border: none !important; padding: 0 !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .quote-grid { display: block !important; } /* 列印時不要用 grid 防止版面跑掉 */
+            .quote-grid { display: block !important; }
         }
     </style>
 </head>
@@ -72,17 +71,26 @@
 
         const SALES_REPS = ["小揚", "小蔡", "Audi", "其他"];
         const SERVICE_ITEMS = ["車漆包膜", "車漆鍍膜", "專業洗車", "車漆烤漆", "內裝修復", "玻璃塗層", "燈殼保護", "自訂"];
+        
         const CAR_BRANDS = {
-            "Tesla": ["Model 3", "Model Y", "Model S", "Model X"],
-            "Porsche": ["911", "Taycan", "Macan", "Cayenne", "718"],
-            "Ferrari": ["296 GTB", "SF90", "F8", "Roma", "Purosangue"],
-            "Lamborghini": ["Huracán", "Aventador", "Urus", "Revuelto"],
-            "Maserati": ["Grecale", "Ghibli", "Levante", "MC20"],
-            "BMW": ["M2", "M3", "M4", "M5", "X5", "X6", "XM"],
-            "Mercedes-Benz": ["AMG GT", "G63", "S-Class", "E-Class", "C-Class"],
-            "Audi": ["R8", "RS6", "RS e-tron GT", "Q8"],
-            "Lexus": ["RX", "NX", "UX", "IS", "LM"],
-            "Toyota": ["Alphard", "Crown", "RAV4", "Supra"],
+            "Tesla": ["Model 3", "Model Y", "Model S", "Model X", "Cybertruck"],
+            "Porsche": ["911", "Taycan", "Macan", "Cayenne", "718 Boxster", "718 Cayman", "Panamera"],
+            "Ferrari": ["296 GTB", "SF90 Stradale", "F8 Tributo", "Roma", "Purosangue", "812 Superfast"],
+            "Lamborghini": ["Urus", "Huracán", "Aventador", "Revuelto"],
+            "McLaren": ["750S", "720S", "Artura", "GT", "570S"],
+            "Maserati": ["Grecale", "Ghibli", "Levante", "MC20", "GranTurismo"],
+            "Bentley": ["Continental GT", "Flying Spur", "Bentayga"],
+            "Rolls-Royce": ["Cullinan", "Ghost", "Phantom", "Spectre"],
+            "Aston Martin": ["DBX", "Vantage", "DB12", "DBS"],
+            "Land Rover": ["Range Rover", "Defender", "Discovery", "Range Rover Sport", "Evoque"],
+            "BMW": ["M2", "M3", "M4", "M5", "X5", "X6", "X7", "XM", "7-Series", "4-Series"],
+            "Mercedes-Benz": ["G-Class", "S-Class", "E-Class", "C-Class", "GLE", "GLC", "EQS", "AMG GT"],
+            "Audi": ["R8", "RS6", "RS e-tron GT", "Q8", "Q7", "A4", "A6"],
+            "Lexus": ["RX", "NX", "UX", "IS", "ES", "LM", "LC500"],
+            "Toyota": ["Alphard", "Vellfire", "Crown", "RAV4", "Supra", "Sienna"],
+            "Honda": ["Civic Type R", "CR-V", "HR-V", "Odyssey"],
+            "Volvo": ["XC90", "XC60", "XC40", "V60"],
+            "Lotus": ["Emira", "Eletre"],
             "其他 / 自訂輸入": []
         };
 
@@ -220,7 +228,7 @@
                 customName: SERVICE_ITEMS.includes(s.name) ? '' : s.name,
                 price: s.price
             })) : [{ name: '', customName: '', price: 0 }];
-            editData.notes = order.notes || ''; // 確保載入備註
+            editData.notes = order.notes || '';
             window.setMode('form', editData);
         };
 
@@ -228,7 +236,7 @@
             const order = window.workOrders.find(o => o.id === id);
             const viewData = JSON.parse(JSON.stringify(order));
             viewData.serviceItems = order.services || []; 
-            viewData.notes = order.notes || ''; // 確保載入備註
+            viewData.notes = order.notes || '';
             window.setMode('quote', viewData);
         };
 
@@ -250,8 +258,15 @@
                             <div class="space-y-1"><label class="text-xs font-bold text-gray-500">聯絡電話</label><input type="tel" id="phoneNumber" value="${window.currentFormData.phoneNumber || ''}" placeholder="09xx" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm"></div>
                             <div class="space-y-1"><label class="text-xs font-bold text-gray-500">車輛廠牌</label><select id="carBrand" onchange="window.handleBrandChange(this.value)" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm"><option value="" disabled ${!window.currentFormData.carBrand ? 'selected' : ''}>請選擇</option>${Object.keys(CAR_BRANDS).map(b => `<option value="${b}" ${window.currentFormData.carBrand === b ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
                         </div>
-                        <div id="model-container" class="mt-2"></div>
+                        
+                        <div id="custom-brand-box" class="hidden mt-4 p-4 bg-orange-50 rounded-xl border-2 border-orange-100 animate-pulse">
+                            <label class="text-xs font-bold text-orange-600 uppercase tracking-widest">請輸入自訂廠牌名稱</label>
+                            <input type="text" id="manualBrand" placeholder="例如: Pagani / Singer / ..." class="w-full p-3 mt-1 border-2 border-orange-200 rounded-xl focus:border-orange-500 outline-none">
+                        </div>
+
+                        <div id="model-container" class="mt-4"></div>
                     </div>
+                    
                     <div class="space-y-4">
                         <p class="text-sm font-bold text-gray-400 border-b pb-2 uppercase tracking-widest">施工服務項目</p>
                         <div id="service-items-container" class="space-y-3"></div>
@@ -269,25 +284,29 @@
             `;
             window.handleBrandChange(window.currentFormData.carBrand || "");
             window.renderServiceItems();
+            
             document.getElementById('work-order-form').onsubmit = (e) => {
                 e.preventDefault();
+                const selBrand = document.getElementById('carBrand').value;
+                const manualBrand = document.getElementById('manualBrand')?.value;
+                
                 window.currentFormData.receiveDate = document.getElementById('receiveDate').value;
                 window.currentFormData.licensePlate = document.getElementById('licensePlate').value.toUpperCase();
                 window.currentFormData.salesRep = document.getElementById('salesRep').value;
                 window.currentFormData.customerName = document.getElementById('customerName').value;
                 window.currentFormData.phoneNumber = document.getElementById('phoneNumber').value;
-                window.currentFormData.carBrand = document.getElementById('carBrand').value;
-                window.currentFormData.notes = document.getElementById('notes').value; // 儲存備註
+                window.currentFormData.carBrand = (selBrand === "其他 / 自訂輸入") ? (manualBrand || "其他") : selBrand;
+                window.currentFormData.notes = document.getElementById('notes').value;
                 
-                if (window.currentFormData.carBrand === "其他 / 自訂輸入") {
-                    const customInfo = document.getElementById('customCarInfo');
-                    window.currentFormData.carModel = customInfo ? customInfo.value : "其他";
+                const modelEl = document.getElementById('carModel');
+                const manualModelEl = document.getElementById('manualModel');
+                
+                if (selBrand === "其他 / 自訂輸入") {
+                    window.currentFormData.carModel = window.currentFormData.carBrand;
                 } else {
-                    const selMEl = document.getElementById('carModel');
-                    const selM = selMEl ? selMEl.value : "";
+                    const selM = modelEl ? modelEl.value : "";
                     if (selM === '自訂車型') {
-                        const manualEl = document.getElementById('manualModel');
-                        window.currentFormData.carModel = manualEl ? `${window.currentFormData.carBrand} ${manualEl.value}` : window.currentFormData.carBrand;
+                        window.currentFormData.carModel = manualModelEl ? `${window.currentFormData.carBrand} ${manualModelEl.value}` : window.currentFormData.carBrand;
                     } else {
                         window.currentFormData.carModel = `${window.currentFormData.carBrand} ${selM}`;
                     }
@@ -297,29 +316,37 @@
         };
 
         window.handleBrandChange = (brand) => {
-            const container = document.getElementById('model-container');
-            if (!container) return;
+            const brandBox = document.getElementById('custom-brand-box');
+            const modelContainer = document.getElementById('model-container');
+            if (!brandBox || !modelContainer) return;
+
+            // 處理廠牌自訂框顯示
+            if (brand === "其他 / 自訂輸入") {
+                brandBox.classList.remove('hidden');
+                modelContainer.innerHTML = ""; // 自訂廠牌時直接填寫型號於上方或稍後處理
+                return;
+            } else {
+                brandBox.classList.add('hidden');
+            }
+
             const models = CAR_BRANDS[brand] || [];
             const currentM = window.currentFormData.carModel?.replace(brand + ' ', '') || '';
-            container.innerHTML = `
+            
+            modelContainer.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-500">車型系列</label>
-                        ${brand === "其他 / 自訂輸入" || models.length === 0 ? 
-                          `<input type="text" id="customCarInfo" value="${currentM}" placeholder="手動輸入" class="w-full p-3 border-2 border-orange-200 rounded-xl bg-orange-50">` :
-                          `<select id="carModel" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm" onchange="const box=document.getElementById('custom-model-box'); if(this.value==='自訂車型') box.classList.remove('hidden'); else box.classList.add('hidden');">
-                              ${models.map(m => `<option value="${m}" ${currentM === m ? 'selected' : ''}>${m}</option>`).join('')}
-                              <option value="自訂車型">自訂車型...</option>
-                          </select>`
-                        }
+                        <label class="text-xs font-bold text-gray-500">車型系列 (Select Model)</label>
+                        <select id="carModel" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm" onchange="const box=document.getElementById('custom-model-box'); if(this.value==='自訂車型') box.classList.remove('hidden'); else box.classList.add('hidden');">
+                            <option value="" disabled ${!currentM ? 'selected' : ''}>請選擇型號</option>
+                            ${models.map(m => `<option value="${m}" ${currentM === m ? 'selected' : ''}>${m}</option>`).join('')}
+                            <option value="自訂車型" ${currentM && !models.includes(currentM) ? 'selected' : ''}>+ 自訂車型...</option>
+                        </select>
                     </div>
-                    <div id="custom-model-box" class="hidden space-y-1">
-                         <label class="text-xs font-bold text-orange-500">自訂車型名稱</label>
-                         <input type="text" id="manualModel" value="${currentM}" placeholder="例如: 911 GT3 RS" class="w-full p-3 border-2 border-orange-200 rounded-xl bg-orange-50">
+                    <div id="custom-model-box" class="${(currentM && !models.includes(currentM)) ? '' : 'hidden'} space-y-1">
+                         <label class="text-xs font-bold text-orange-500 uppercase tracking-widest">請輸入自訂車型名稱</label>
+                         <input type="text" id="manualModel" value="${currentM && !models.includes(currentM) ? currentM : ''}" placeholder="例如: 911 GT3 RS" class="w-full p-3 border-2 border-orange-200 rounded-xl bg-orange-50 focus:border-orange-500 outline-none">
                     </div>
                 </div>`;
-            const carModelEl = document.getElementById('carModel');
-            if (carModelEl && carModelEl.value === '自訂車型') document.getElementById('custom-model-box').classList.remove('hidden');
         };
 
         window.renderServiceItems = () => {
@@ -357,7 +384,6 @@
             window.currentFormData.finalPrice = final;
 
             container.innerHTML = `
-                <!-- 列印專用抬頭 -->
                 <div class="hidden print-header flex justify-between items-center border-b-2 border-gray-800 pb-4 mb-4">
                     <div><h1 class="text-3xl font-black text-orange-500 italic">AS TAIPEI</h1></div>
                     <div class="text-right"><h2 class="text-xl font-bold">服務確認報價單</h2><p class="text-xs font-mono text-gray-500">NO: ${window.currentFormData.id}</p></div>
@@ -389,7 +415,6 @@
                             </table>
                         </div>
 
-                        <!-- 重要：備註區塊 -->
                         <div class="p-6 bg-gray-50 border-l-8 border-orange-500 rounded-xl shadow-inner">
                             <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">備註事項 NOTES</p>
                             <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">${window.currentFormData.notes || '無特殊備註'}</p>
