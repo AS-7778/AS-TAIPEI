@@ -3,106 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AS TAIPEI 服務系統 v1.7.0</title>
+    <title>AS TAIPEI 專業服務系統 v7.9</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary-orange: #f97316; --primary-grey: #e5e7eb; }
-        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: var(--primary-grey); }
-        .signature-canvas { border: 2px solid var(--primary-orange); background-color: #fff; touch-action: none; cursor: crosshair; }
-        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        :root { --primary-orange: #f97316; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .signature-canvas { border: 2px solid #e2e8f0; background-color: #fff; touch-action: none; cursor: crosshair; border-radius: 12px; }
         
-        .dash-line { border-bottom: 1px dashed #cbd5e1; flex-grow: 1; margin-left: 6px; min-height: 1.4em; display: inline-block; }
+        .info-section { border-left: 4px solid var(--primary-orange); padding-left: 16px; margin-bottom: 24px; }
+        .info-title { font-weight: 900; font-size: 16px; color: #1e293b; margin-bottom: 8px; }
+        .info-text { font-size: 13px; line-height: 1.7; color: #334155; text-align: justify; }
+        .info-text-bold { font-weight: 700; color: #0f172a; }
+
+        /* 弱化保固除外事項樣式：字體更小 */
+        .info-section-dim { border-left: 4px solid #cbd5e1; padding-left: 16px; margin-bottom: 24px; }
+        .info-title-dim { font-weight: 700; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+        .info-text-dim { font-size: 11px; line-height: 1.5; color: #cbd5e1; text-align: justify; }
 
         @media print {
-            body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
+            body { background-color: white !important; }
             .no-print { display: none !important; }
-            .print-container { 
-                box-shadow: none !important; 
-                border: none !important; 
-                width: 100% !important; 
-                max-width: 100% !important; 
-                padding: 10mm !important; 
-                margin: 0 !important; 
-            }
-            .print-header { display: flex !important; }
-            main { box-shadow: none !important; border: none !important; padding: 0 !important; }
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .print-container { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+            .info-section { border-left: 4px solid #f97316 !important; }
         }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8">
+<body class="min-h-screen">
 
-    <header class="text-center mb-8 no-print">
-        <h1 class="text-4xl font-extrabold text-orange-500 tracking-wider">AS TAIPEI</h1>
-        <p class="text-xl text-white bg-gray-900 px-4 py-1 inline-block rounded-lg shadow-xl mt-2">汽車服務管理系統</p>
+    <header class="no-print bg-slate-950 py-6 text-center shadow-xl">
+        <h1 class="text-4xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1>
+        <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">頂級汽車美容美研管理系統</p>
     </header>
 
-    <main id="app-container" class="max-w-6xl mx-auto bg-white p-6 md:p-10 rounded-xl shadow-2xl print-container">
-        <div id="loading" class="text-center p-8 text-lg text-gray-500">系統初始化中...</div>
-        
-        <div id="nav-bar" class="hidden flex justify-center space-x-4 mb-8 no-print">
-            <button onclick="setMode('history')" class="nav-btn bg-gray-200 text-gray-700 hover:bg-gray-300 p-3 px-6 rounded-lg font-semibold shadow-md transition-all">📋 歷史工單</button>
-            <button onclick="setMode('form', null, true)" class="nav-btn bg-orange-500 text-white hover:bg-orange-600 p-3 px-6 rounded-lg font-semibold shadow-md transition-all">➕ 新增工單</button>
+    <main id="app-container" class="max-w-6xl mx-auto px-4 py-8 print-container">
+        <div id="nav-bar" class="hidden flex justify-center gap-4 mb-8 no-print">
+            <button onclick="setMode('history')" class="bg-white text-slate-700 p-4 px-8 rounded-2xl font-black shadow-sm border hover:bg-gray-100 transition-all">📋 歷史紀錄與統計</button>
+            <button onclick="setMode('form', null, true)" class="bg-orange-500 text-white p-4 px-8 rounded-2xl font-black shadow-lg hover:bg-orange-600 transition-all">➕ 新增工單</button>
         </div>
 
+        <div id="loading" class="text-center py-20 text-slate-400 font-bold italic">系統初始化中...</div>
         <div id="mode-history" class="hidden"></div>
         <div id="mode-form" class="hidden"></div>
         <div id="mode-quote" class="hidden"></div>
     </main>
 
-    <!-- Message Modal -->
-    <div id="message-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 no-print">
-        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
-            <h3 id="modal-title" class="text-xl font-bold mb-4 text-orange-500">提示</h3>
-            <p id="modal-body" class="mb-6 text-gray-700"></p>
-            <button onclick="closeMessageModal()" class="w-full bg-orange-500 text-white p-3 rounded-lg font-semibold hover:bg-orange-600">確定</button>
+    <div id="message-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border-t-8 border-orange-500">
+            <h3 id="modal-title" class="text-2xl font-black mb-4">提示</h3>
+            <p id="modal-body" class="mb-8 text-slate-600 font-medium"></p>
+            <div id="modal-footer" class="flex gap-4"></div>
         </div>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, serverTimestamp, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'as-taipei-pro';
         let app, db, auth;
+
         window.currentMode = 'form';
         window.workOrders = [];
-        window.currentFormData = {}; 
+        window.currentFormData = {};
         window.currentFilterMonth = new Date().toISOString().slice(0, 7);
 
-        const SALES_REPS = ["小揚", "小蔡", "Audi", "其他"];
-        const SERVICE_ITEMS = ["車漆包膜", "車漆鍍膜", "專業洗車", "車漆烤漆", "內裝修復", "玻璃塗層", "燈殼保護", "自訂"];
-        
-        const CAR_BRANDS = {
-            "Tesla": ["Model 3", "Model Y", "Model S", "Model X", "Cybertruck"],
-            "Porsche": ["911", "Taycan", "Macan", "Cayenne", "718 Boxster", "718 Cayman", "Panamera"],
-            "Ferrari": ["296 GTB", "SF90 Stradale", "F8 Tributo", "Roma", "Purosangue", "812 Superfast"],
-            "Lamborghini": ["Urus", "Huracán", "Aventador", "Revuelto"],
-            "McLaren": ["750S", "720S", "Artura", "GT", "570S"],
-            "Maserati": ["Grecale", "Ghibli", "Levante", "MC20", "GranTurismo"],
-            "Bentley": ["Continental GT", "Flying Spur", "Bentayga"],
-            "Rolls-Royce": ["Cullinan", "Ghost", "Phantom", "Spectre"],
-            "Aston Martin": ["DBX", "Vantage", "DB12", "DBS"],
-            "Land Rover": ["Range Rover", "Defender", "Discovery", "Range Rover Sport", "Evoque"],
-            "BMW": ["M2", "M3", "M4", "M5", "X5", "X6", "X7", "XM", "7-Series", "4-Series"],
-            "Mercedes-Benz": ["G-Class", "S-Class", "E-Class", "C-Class", "GLE", "GLC", "EQS", "AMG GT"],
-            "Audi": ["R8", "RS6", "RS e-tron GT", "Q8", "Q7", "A4", "A6"],
-            "Lexus": ["RX", "NX", "UX", "IS", "ES", "LM", "LC500"],
-            "Toyota": ["Alphard", "Vellfire", "Crown", "RAV4", "Supra", "Sienna"],
-            "Honda": ["Civic Type R", "CR-V", "HR-V", "Odyssey"],
-            "Volvo": ["XC90", "XC60", "XC40", "V60"],
-            "Lotus": ["Emira", "Eletre"],
-            "其他 / 自訂輸入": []
+        const SALES_LIST = ["Audi", "小蔡", "小揚", "其他 / 自訂"];
+        const COMMON_SERVICES = ["全車車漆保護膜", "車頭迎風面保護膜", "內裝保護膜", "大燈保護膜", "玻璃鍍膜", "輪框鍍膜", "深層清潔保養", "已付訂金"];
+
+        const CAR_DATABASE = {
+            "Porsche 保時捷": ["911 GT3 RS", "911 Carrera", "Taycan", "Macan", "Cayenne Coupé", "718 Cayman", "Panamera"],
+            "Ferrari 法拉利": ["296 GTB", "SF90 Stradale", "Roma", "Purosangue", "F8 Tributo", "812 Superfast"],
+            "Lamborghini 藍寶經尼": ["Urus Performante", "Huracán Sterrato", "Revuelto", "Aventador SVJ"],
+            "McLaren 麥拉倫": ["750S Spider", "Artura", "GT", "720S", "765LT"],
+            "Maserati 瑪莎拉蒂": ["MC20 Cielo", "Grecale", "Levante", "GranTurismo"],
+            "Aston Martin 奧斯頓馬丁": ["DBX 707", "DBS", "Vantage", "DB12"],
+            "Bentley 賓利": ["Continental GT", "Bentayga", "Flying Spur"],
+            "Rolls-Royce 勞斯萊斯": ["Cullinan", "Ghost", "Spectre", "Phantom"],
+            "Tesla 特斯拉": ["Model Y", "Model 3 Highland", "Model X Plaid", "Model S"],
+            "BMW 寶馬": ["M2 (G87)", "M3 Touring", "M4 CSL", "X5", "X7", "i7 M70", "Z4", "i4", "iX"],
+            "Mercedes-Benz 賓士": ["G63 AMG", "S-Class Maybach", "E-Class", "C-Class", "GLE", "SL 63", "EQS", "EQE SUV"],
+            "Audi 奧迪": ["RS6 Avant", "RS e-tron GT", "Q7", "A4", "R8 V10", "Q8 e-tron", "A3 Sportback"],
+            "Lexus 凌志": ["RX500h", "NX200", "LM350h", "ES", "LC500", "IS300h", "LBX"],
+            "Toyota 豐田": ["Alphard", "Vellfire", "Crown Sport", "RAV4", "Supra", "GR Yaris", "Prius PHEV"],
+            "Land Rover 荒原路華": ["Range Rover", "Defender 110", "Defender 90", "Discovery", "Velar"],
+            "Volvo 富豪": ["XC90", "XC60", "XC40 Recharge", "V60", "S90"],
+            "Mazda 馬自達": ["CX-60", "CX-90", "CX-5", "MX-5", "Mazda 3"],
+            "Ford 福特": ["Mustang Mach-E", "Focus", "Ranger", "Kuga"],
+            "Lotus 蓮花": ["Emira", "Eletre"],
+            "其他 / 自訂品牌": []
         };
 
         const initializeFirebase = async () => {
             try {
-                const config = { apiKey: "AIzaSyBXjoN2ys4i1MMCDgAgX5SQfnK-3FoodgI", authDomain: "as-taipei-d66fb.firebaseapp.com", projectId: "as-taipei-d66fb", storageBucket: "as-taipei-d66fb.firebasestorage.app", messagingSenderId: "501804734426", appId: "1:501804734426:web:47271f84ff7454aea692e3" };
-                app = initializeApp(config);
+                app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                await signInAnonymously(auth);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         document.getElementById('loading').classList.add('hidden');
@@ -114,381 +118,353 @@
         };
 
         const setupFirestoreListener = () => {
-            const q = query(collection(db, `artifacts/as-taipei-app/public/data/workOrders`));
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'workOrders');
             onSnapshot(q, (snap) => {
                 window.workOrders = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.id.localeCompare(a.id));
                 if (window.currentMode === 'history') window.renderHistoryMode();
-            });
-        };
-
-        const generateOrderId = () => {
-            const datePrefix = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-            const sameDayOrders = window.workOrders.filter(o => o.id.startsWith(datePrefix));
-            const nextNum = (sameDayOrders.length + 1).toString().padStart(4, '0');
-            return `${datePrefix}-${nextNum}`;
+            }, (err) => console.error(err));
         };
 
         window.setMode = (mode, data = null, isNew = false) => {
             window.currentMode = mode;
             if (isNew) {
+                const today = new Date().toISOString().split('T')[0];
                 window.currentFormData = {
-                    id: generateOrderId(),
-                    receiveDate: new Date().toISOString().split('T')[0],
-                    dueDate: new Date().toISOString().split('T')[0],
-                    serviceItems: [{ name: '', customName: '', price: 0 }],
-                    paymentMethod: 'cash',
-                    invoiceEnabled: false,
-                    isSigned: false,
-                    notes: '',
-                    salesRep: 'Audi'
+                    id: `AS-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${(window.workOrders.length+1).toString().padStart(3,'0')}`,
+                    receiveDate: today, deliveryDate: today,
+                    customerName: '', customerPhone: '', licensePlate: '',
+                    carBrand: 'Porsche 保時捷', carModel: '911 GT3 RS', salesPerson: SALES_LIST[0],
+                    paymentMethod: '現金', needsInvoice: false,
+                    serviceItems: [{ name: '全車車漆保護膜', price: 0 }],
+                    notes: '', isSigned: false, signatureImage: null,
+                    customSales: '', customBrand: '', customModel: ''
                 };
             } else if (data) {
                 window.currentFormData = data;
             }
-            ['history', 'form', 'quote'].forEach(m => {
-                const el = document.getElementById(`mode-${m}`);
-                if (el) el.classList.add('hidden');
-            });
+            ['history', 'form', 'quote'].forEach(m => document.getElementById(`mode-${m}`).classList.add('hidden'));
             if (mode === 'history') window.renderHistoryMode();
             else if (mode === 'form') window.renderFormMode();
             else if (mode === 'quote') window.renderQuoteMode();
-            
-            const targetEl = document.getElementById(`mode-${mode}`);
-            if (targetEl) targetEl.classList.remove('hidden');
+            document.getElementById(`mode-${mode}`).classList.remove('hidden');
             window.scrollTo(0,0);
         };
 
         window.renderHistoryMode = () => {
-            const container = document.getElementById('mode-history');
             const filtered = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth));
-            
-            container.innerHTML = `
-                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                    <h2 class="text-3xl font-bold border-b-4 border-orange-500 pb-1 text-gray-800">歷史工單管理</h2>
-                    <div class="flex items-center gap-2 no-print">
-                        <label class="text-sm font-bold text-gray-500">月份篩選:</label>
-                        <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="p-2 border rounded-lg shadow-sm">
-                        <button onclick="window.exportToExcel()" class="bg-green-600 text-white p-2 px-4 rounded-lg font-bold hover:bg-green-700 shadow-md">📊 導出 CSV</button>
+            const totalCount = filtered.length;
+            const totalRevenue = filtered.reduce((sum, o) => {
+                const sub = o.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+                const tax = (o.needsInvoice || o.paymentMethod === '信用卡') ? Math.round(sub * 0.05) : 0;
+                return sum + sub + tax;
+            }, 0);
+
+            document.getElementById('mode-history').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print">
+                    <div class="bg-white p-6 rounded-3xl border shadow-sm">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1 tracking-widest">選擇查詢月份</p>
+                        <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="w-full p-3 border-2 rounded-xl font-bold">
+                    </div>
+                    <div class="bg-slate-900 p-6 rounded-3xl shadow-xl text-white">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1 tracking-widest">案件量</p>
+                        <p class="text-4xl font-black text-orange-500">${totalCount} <span class="text-sm">件</span></p>
+                    </div>
+                    <div class="bg-orange-500 p-6 rounded-3xl shadow-xl text-white">
+                        <p class="text-xs font-bold text-white/70 uppercase mb-1 tracking-widest">總營收 (含稅)</p>
+                        <p class="text-4xl font-black">NT$ ${totalRevenue.toLocaleString()}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border shadow-sm flex flex-col justify-center items-center gap-2">
+                        <button onclick="window.exportExcel()" class="w-full bg-green-600 text-white py-3 rounded-xl font-black shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2">
+                            <span>📥 匯出本月 Excel</span>
+                        </button>
                     </div>
                 </div>
-                <div class="overflow-x-auto bg-white rounded-xl border border-gray-200">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-gray-800 text-white">
+                <div class="bg-white rounded-3xl border shadow-sm overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b">
                             <tr>
-                                <th class="p-4 text-sm">工單編號</th>
-                                <th class="p-4 text-sm">日期</th>
-                                <th class="p-4 text-sm">車牌 / 客戶</th>
-                                <th class="p-4 text-sm">狀態</th>
-                                <th class="p-4 text-sm text-right">總金額</th>
-                                <th class="p-4 text-sm text-center">操作</th>
+                                <th class="p-5 text-xs font-bold text-slate-400">單號 / 日期</th>
+                                <th class="p-5 text-xs font-bold text-slate-400">客戶 / 車輛</th>
+                                <th class="p-5 text-xs font-bold text-slate-400">明細 / 總額</th>
+                                <th class="p-5 text-right text-xs font-bold text-slate-400">操作</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            ${filtered.length === 0 ? '<tr><td colspan="6" class="p-10 text-center text-gray-400">目前月份無工單資料</td></tr>' : 
-                              filtered.map(o => `
-                                <tr class="hover:bg-orange-50 transition-colors">
-                                    <td class="p-4 font-mono text-sm font-bold text-orange-600">${o.id}</td>
-                                    <td class="p-4 text-sm text-gray-600">${o.receiveDate}</td>
-                                    <td class="p-4">
-                                        <p class="font-bold text-gray-800">${o.licensePlate || 'N/A'}</p>
-                                        <p class="text-xs text-gray-500">${o.customerName || '未填寫'}</p>
+                            ${filtered.map(o => {
+                                const sub = o.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+                                const tax = (o.needsInvoice || o.paymentMethod === '信用卡') ? Math.round(sub * 0.05) : 0;
+                                return `
+                                <tr class="hover:bg-slate-50">
+                                    <td class="p-5 align-top">
+                                        <span class="font-black text-orange-600">${o.id}</span><br>
+                                        <span class="text-xs text-slate-400">${o.receiveDate}</span>
                                     </td>
-                                    <td class="p-4">
-                                        ${o.isSigned ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">已簽名</span>' : '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">未簽名</span>'}
+                                    <td class="p-5 align-top">
+                                        <span class="font-black text-slate-800">${o.customerName || '未留名'}</span> 
+                                        <span class="text-xs font-bold text-slate-500">(${o.customerPhone || ''})</span><br>
+                                        <span class="font-bold text-slate-700 uppercase">${o.licensePlate}</span><br>
+                                        <span class="text-xs text-slate-400">${o.carBrand === '其他 / 自訂品牌' ? o.customBrand : o.carBrand} ${o.carModel === '其他自選車款' ? o.customModel : o.carModel}</span>
                                     </td>
-                                    <td class="p-4 text-right font-bold text-gray-900">NT$ ${(o.finalPrice || 0).toLocaleString()}</td>
-                                    <td class="p-4 flex justify-center gap-2">
-                                        <button onclick="window.editWorkOrder('${o.id}')" class="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-all">✎</button>
-                                        <button onclick="window.viewWorkOrder('${o.id}')" class="text-orange-600 hover:bg-orange-50 p-2 rounded-lg transition-all">📄</button>
-                                        <button onclick="window.deleteWorkOrder('${o.id}')" class="text-red-400 hover:bg-red-50 p-2 rounded-lg transition-all">✕</button>
+                                    <td class="p-5 align-top">
+                                        <div class="text-[11px] text-slate-500 leading-tight">
+                                            ${o.serviceItems.map(it => `<div>• ${it.name} <span class="font-mono">($${it.price.toLocaleString()})</span></div>`).join('')}
+                                            ${tax > 0 ? `<div class="text-orange-500 font-bold">• 稅額/手續費 ($${tax.toLocaleString()})</div>` : ''}
+                                        </div>
+                                        <div class="font-black text-slate-900 mt-1">NT$ ${(sub+tax).toLocaleString()} <span class="text-[10px] font-normal text-slate-400">(${o.paymentMethod})</span></div>
+                                    </td>
+                                    <td class="p-5 text-right align-top">
+                                        <div class="flex justify-end gap-2">
+                                            <button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 text-white text-xs font-black py-2 px-6 rounded-xl">查看</button>
+                                            <button onclick="window.deleteOrder('${o.id}')" class="text-red-500 p-2 font-black text-sm hover:text-red-700 transition-colors">✕</button>
+                                        </div>
                                     </td>
                                 </tr>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
             `;
         };
 
-        window.exportToExcel = () => {
+        // 修復刪除邏輯路徑
+        window.deleteOrder = async (id) => {
+            if (confirm(`確定要刪除單號 ${id} 嗎？`)) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', id));
+                    window.showMessageModal("已刪除", "工單紀錄已從雲端移除。");
+                } catch (e) { 
+                    console.error(e);
+                    window.showMessageModal("錯誤", "刪除失敗，請檢查網路連線。"); 
+                }
+            }
+        };
+
+        window.exportExcel = () => {
             const filtered = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth));
-            if (filtered.length === 0) return window.showMessageModal("提示", "無資料可導出。");
-            let csv = "工單編號,收車日期,預計交車,車牌,客戶,聯絡電話,車型,業務,總金額,付款方式,是否簽名\n";
-            filtered.forEach(o => { csv += `${o.id},${o.receiveDate},${o.dueDate || ''},${o.licensePlate},${o.customerName},${o.phoneNumber},${o.carModel},${o.salesRep},${o.finalPrice},${o.paymentMethod},${o.isSigned?'是':'否'}\n`; });
-            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `AS_TAIPEI_工單_${window.currentFilterMonth}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
-
-        window.editWorkOrder = (id) => {
-            const order = window.workOrders.find(o => o.id === id);
-            const editData = JSON.parse(JSON.stringify(order));
-            editData.serviceItems = order.services ? order.services.map(s => ({
-                name: SERVICE_ITEMS.includes(s.name) ? s.name : '自訂',
-                customName: SERVICE_ITEMS.includes(s.name) ? '' : s.name,
-                price: s.price
-            })) : [{ name: '', customName: '', price: 0 }];
-            window.setMode('form', editData);
-        };
-
-        window.viewWorkOrder = (id) => {
-            const order = window.workOrders.find(o => o.id === id);
-            const viewData = JSON.parse(JSON.stringify(order));
-            viewData.serviceItems = order.services || []; 
-            window.setMode('quote', viewData);
+            const data = filtered.map(o => {
+                const sub = o.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+                const tax = (o.needsInvoice || o.paymentMethod === '信用卡') ? Math.round(sub * 0.05) : 0;
+                return {
+                    "工單編號": o.id, "日期": o.receiveDate, "客戶姓名": o.customerName, "電話": o.customerPhone, "車牌": o.licensePlate,
+                    "車型": (o.carBrand === '其他 / 自訂品牌' ? o.customBrand : o.carBrand) + " " + (o.carModel === '其他自選車款' ? o.customModel : o.carModel),
+                    "支付方式": o.paymentMethod, "小計": sub, "稅金/手續費": tax, "總金額": sub + tax
+                };
+            });
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "工單報表");
+            XLSX.writeFile(wb, `AS_TAIPEI_${window.currentFilterMonth}.xlsx`);
         };
 
         window.renderFormMode = () => {
             const container = document.getElementById('mode-form');
             container.innerHTML = `
-                <div class="flex justify-between items-center mb-6 no-print">
-                    <h2 class="text-3xl font-bold border-b-4 border-orange-500 pb-1 text-gray-800">服務工單填寫</h2>
-                    <p class="text-lg font-mono font-black text-orange-600 bg-orange-50 px-3 py-1 rounded-lg border border-orange-200"># ${window.currentFormData.id}</p>
+                <div class="bg-white p-8 rounded-3xl border shadow-xl space-y-8 no-print">
+                    <div class="flex items-center gap-4 border-b pb-6"><h2 class="text-3xl font-black">填寫服務工單</h2></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">客戶姓名</label><input type="text" id="f-customerName" value="${window.currentFormData.customerName}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">聯絡電話</label><input type="tel" id="f-customerPhone" value="${window.currentFormData.customerPhone||''}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">車牌號碼</label><input type="text" id="f-licensePlate" value="${window.currentFormData.licensePlate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-black uppercase"></div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-slate-400">結帳方式</label>
+                            <select id="f-paymentMethod" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold">
+                                ${["現金", "信用卡", "匯款"].map(p => `<option value="${p}" ${window.currentFormData.paymentMethod===p?'selected':''}>${p}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">汽車品牌</label>
+                            <select id="f-carBrand" onchange="window.onBrandChange(this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold">
+                                ${Object.keys(CAR_DATABASE).map(b => `<option value="${b}" ${window.currentFormData.carBrand===b?'selected':''}>${b}</option>`).join('')}
+                            </select>
+                            <input type="text" id="f-customBrand" placeholder="輸入品牌" class="hidden mt-2 w-full p-4 bg-orange-50 border-orange-200 border rounded-2xl font-bold" value="${window.currentFormData.customBrand||''}">
+                        </div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">型號</label>
+                            <select id="f-carModel" onchange="window.onModelChange(this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></select>
+                            <input type="text" id="f-customModel" placeholder="輸入型號" class="hidden mt-2 w-full p-4 bg-orange-50 border-orange-200 border rounded-2xl font-bold" value="${window.currentFormData.customModel||''}">
+                        </div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">負責業務</label>
+                            <select id="f-salesPerson" onchange="window.onSalesChange(this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold">
+                                ${SALES_LIST.map(s => `<option value="${s}" ${window.currentFormData.salesPerson===s?'selected':''}>${s}</option>`).join('')}
+                            </select>
+                            <input type="text" id="f-customSales" placeholder="輸入業務姓名" class="hidden mt-2 w-full p-4 bg-orange-50 border-orange-200 border rounded-2xl font-bold" value="${window.currentFormData.customSales||''}">
+                        </div>
+                        <div class="flex items-center pt-6">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 accent-orange-500">
+                                <span class="font-bold text-slate-700">需開發票 (+5%)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-6 rounded-3xl border">
+                        <h3 class="font-black mb-4">項目明細</h3>
+                        <div id="items-container" class="space-y-3"></div>
+                        <button type="button" onclick="window.addItem()" class="mt-4 w-full py-4 border-2 border-dashed rounded-2xl text-slate-400 font-bold">+ 新增項目</button>
+                    </div>
+                    <button id="btn-next" class="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-2xl shadow-2xl">確認內容並預覽</button>
                 </div>
-                <form id="work-order-form" class="space-y-8 no-print">
-                    <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-6">
-                        <p class="text-sm font-bold text-gray-400 border-b pb-2 uppercase tracking-widest">車主與車輛資訊</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">收車日期</label><input type="date" id="receiveDate" value="${window.currentFormData.receiveDate}" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm focus:border-orange-500 outline-none"></div>
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">預計交車日期</label><input type="date" id="dueDate" value="${window.currentFormData.dueDate || window.currentFormData.receiveDate}" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm focus:border-orange-500 outline-none"></div>
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">車牌號碼</label><input type="text" id="licensePlate" value="${window.currentFormData.licensePlate || ''}" placeholder="例: ABC-1234" class="w-full p-3 border-2 border-gray-200 rounded-xl uppercase bg-white shadow-sm focus:border-orange-500 outline-none font-bold"></div>
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">負責業務</label><select id="salesRep" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm">${SALES_REPS.map(r => `<option value="${r}" ${window.currentFormData.salesRep === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">客戶姓名</label><input type="text" id="customerName" value="${window.currentFormData.customerName || ''}" placeholder="輸入姓名" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm"></div>
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">聯絡電話</label><input type="tel" id="phoneNumber" value="${window.currentFormData.phoneNumber || ''}" placeholder="09xx" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm"></div>
-                            <div class="space-y-1"><label class="text-xs font-bold text-gray-500">車輛廠牌</label><select id="carBrand" onchange="window.handleBrandChange(this.value)" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm"><option value="" disabled ${!window.currentFormData.carBrand ? 'selected' : ''}>請選擇</option>${Object.keys(CAR_BRANDS).map(b => `<option value="${b}" ${window.currentFormData.carBrand === b ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
-                        </div>
-                        
-                        <div id="custom-brand-box" class="hidden mt-4 p-4 bg-orange-50 rounded-xl border-2 border-orange-100">
-                            <label class="text-xs font-bold text-orange-600 uppercase tracking-widest">請輸入自訂廠牌名稱</label>
-                            <input type="text" id="manualBrand" placeholder="例如: Pagani" class="w-full p-3 mt-1 border-2 border-orange-200 rounded-xl focus:border-orange-500 outline-none font-bold">
-                        </div>
-
-                        <div id="model-container" class="mt-4"></div>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <p class="text-sm font-bold text-gray-400 border-b pb-2 uppercase tracking-widest">施工服務項目</p>
-                        <div id="service-items-container" class="space-y-3"></div>
-                        <button type="button" onclick="window.addServiceItem()" class="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 hover:border-orange-500 transition-all font-bold">+ 新增服務項目</button>
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-500 uppercase tracking-widest">備註事項 (Notes)</label>
-                        <textarea id="notes" rows="4" placeholder="請輸入特殊需求或車況備註..." class="w-full p-4 border-2 border-gray-200 rounded-xl bg-white shadow-sm focus:border-orange-500 outline-none text-gray-700 font-medium">${window.currentFormData.notes || ''}</textarea>
-                    </div>
-
-                    <div class="text-right p-8 bg-gray-900 text-white rounded-2xl shadow-xl flex justify-between items-center"><span class="text-gray-400 font-bold tracking-widest uppercase">目前合計</span><span id="form-base-price" class="text-4xl font-extrabold text-orange-500">NT$ 0</span></div>
-                    <button type="submit" class="w-full bg-orange-500 text-white py-5 rounded-xl font-bold text-2xl shadow-xl hover:bg-orange-600 transition-all">預覽報價單 &rarr;</button>
-                </form>
             `;
-            window.handleBrandChange(window.currentFormData.carBrand || "");
-            window.renderServiceItems();
+            window.fillModels(window.currentFormData.carBrand);
+            window.renderItems();
             
-            document.getElementById('work-order-form').onsubmit = (e) => {
-                e.preventDefault();
-                const selBrand = document.getElementById('carBrand').value;
-                const manualBrand = document.getElementById('manualBrand')?.value;
-                
-                window.currentFormData.receiveDate = document.getElementById('receiveDate').value;
-                window.currentFormData.dueDate = document.getElementById('dueDate').value;
-                window.currentFormData.licensePlate = document.getElementById('licensePlate').value.toUpperCase();
-                window.currentFormData.salesRep = document.getElementById('salesRep').value;
-                window.currentFormData.customerName = document.getElementById('customerName').value;
-                window.currentFormData.phoneNumber = document.getElementById('phoneNumber').value;
-                window.currentFormData.carBrand = (selBrand === "其他 / 自訂輸入") ? (manualBrand || "其他") : selBrand;
-                window.currentFormData.notes = document.getElementById('notes').value;
-                
-                const modelEl = document.getElementById('carModel');
-                const manualModelEl = document.getElementById('manualModel');
-                
-                if (selBrand === "其他 / 自訂輸入") {
-                    window.currentFormData.carModel = window.currentFormData.carBrand;
-                } else {
-                    const selM = modelEl ? modelEl.value : "";
-                    if (selM === '自訂車型') {
-                        window.currentFormData.carModel = manualModelEl ? `${window.currentFormData.carBrand} ${manualModelEl.value}` : window.currentFormData.carBrand;
-                    } else {
-                        window.currentFormData.carModel = `${window.currentFormData.carBrand} ${selM}`;
-                    }
-                }
+            window.onBrandChange(window.currentFormData.carBrand, false);
+            window.onModelChange(window.currentFormData.carModel, false);
+            window.onSalesChange(window.currentFormData.salesPerson, false);
+
+            document.getElementById('btn-next').onclick = () => {
+                Object.assign(window.currentFormData, {
+                    customerName: document.getElementById('f-customerName').value,
+                    customerPhone: document.getElementById('f-customerPhone').value,
+                    licensePlate: document.getElementById('f-licensePlate').value.toUpperCase(),
+                    paymentMethod: document.getElementById('f-paymentMethod').value,
+                    needsInvoice: document.getElementById('f-needsInvoice').checked,
+                    carBrand: document.getElementById('f-carBrand').value,
+                    customBrand: document.getElementById('f-customBrand').value,
+                    carModel: document.getElementById('f-carModel').value,
+                    customModel: document.getElementById('f-customModel').value,
+                    salesPerson: document.getElementById('f-salesPerson').value,
+                    customSales: document.getElementById('f-customSales').value
+                });
                 window.setMode('quote');
             };
         };
 
-        window.handleBrandChange = (brand) => {
-            const brandBox = document.getElementById('custom-brand-box');
-            const modelContainer = document.getElementById('model-container');
-            if (!brandBox || !modelContainer) return;
-
-            if (brand === "其他 / 自訂輸入") {
-                brandBox.classList.remove('hidden');
-                modelContainer.innerHTML = "";
-                return;
-            } else {
-                brandBox.classList.add('hidden');
-            }
-
-            const models = CAR_BRANDS[brand] || [];
-            const currentM = window.currentFormData.carModel?.replace(brand + ' ', '') || '';
-            
-            modelContainer.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-1">
-                        <label class="text-xs font-bold text-gray-500">車型系列 (Select Model)</label>
-                        <select id="carModel" class="w-full p-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm font-bold" onchange="const box=document.getElementById('custom-model-box'); if(this.value==='自訂車型') box.classList.remove('hidden'); else box.classList.add('hidden');">
-                            <option value="" disabled ${!currentM ? 'selected' : ''}>請選擇型號</option>
-                            ${models.map(m => `<option value="${m}" ${currentM === m ? 'selected' : ''}>${m}</option>`).join('')}
-                            <option value="自訂車型" ${currentM && !models.includes(currentM) ? 'selected' : ''}>+ 自訂車型...</option>
-                        </select>
-                    </div>
-                    <div id="custom-model-box" class="${(currentM && !models.includes(currentM)) ? '' : 'hidden'} space-y-1">
-                         <label class="text-xs font-bold text-orange-500 uppercase tracking-widest">請輸入自訂車型名稱</label>
-                         <input type="text" id="manualModel" value="${currentM && !models.includes(currentM) ? currentM : ''}" placeholder="例如: 911 GT3 RS" class="w-full p-3 border-2 border-orange-200 rounded-xl bg-orange-50 focus:border-orange-500 outline-none font-bold">
-                    </div>
-                </div>`;
+        window.onBrandChange = (b, updateModel = true) => {
+            const input = document.getElementById('f-customBrand');
+            if(b === '其他 / 自訂品牌') input.classList.remove('hidden');
+            else input.classList.add('hidden');
+            if(updateModel) window.fillModels(b);
+        };
+        window.onModelChange = (m) => {
+            const input = document.getElementById('f-customModel');
+            if(m === '其他自選車款') input.classList.remove('hidden');
+            else input.classList.add('hidden');
+        };
+        window.onSalesChange = (s) => {
+            const input = document.getElementById('f-customSales');
+            if(s === '其他 / 自訂') input.classList.remove('hidden');
+            else input.classList.add('hidden');
         };
 
-        window.renderServiceItems = () => {
-            const container = document.getElementById('service-items-container');
-            if (!container) return;
-            container.innerHTML = window.currentFormData.serviceItems.map((item, i) => `
-                <div class="flex flex-col gap-3 bg-white p-5 rounded-2xl border-2 border-gray-100 shadow-sm relative transition-all hover:border-orange-200">
-                    <div class="flex gap-4 items-center">
-                        <div class="flex-grow"><select onchange="window.updateItemName(${i}, this.value)" class="w-full p-3 border-2 border-gray-100 rounded-xl bg-gray-50 font-bold">${SERVICE_ITEMS.map(s => `<option value="${s}" ${item.name === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
-                        <div class="w-40 relative"><span class="absolute left-3 top-3.5 text-gray-400 font-bold">NT$</span><input type="number" value="${item.price}" oninput="window.updateItemPrice(${i}, this.value)" class="w-full p-3 pl-12 border-2 border-gray-100 rounded-xl text-right font-mono font-black text-orange-600 text-xl outline-none"></div>
-                        <button type="button" onclick="window.removeServiceItem(${i})" class="p-3 text-red-300 hover:text-red-600 text-xl">✕</button>
+        window.fillModels = (b) => {
+            const sel = document.getElementById('f-carModel'); if(!sel) return;
+            const models = CAR_DATABASE[b] || [];
+            sel.innerHTML = models.map(m => `<option value="${m}" ${window.currentFormData.carModel===m?'selected':''}>${m}</option>`).join('') + `<option value="其他自選車款" ${window.currentFormData.carModel==='其他自選車款'?'selected':''}>其他自選車款</option>`;
+            window.onModelChange(sel.value);
+        };
+
+        window.renderItems = () => {
+            document.getElementById('items-container').innerHTML = window.currentFormData.serviceItems.map((it, i) => `
+                <div class="flex flex-col md:flex-row gap-3 bg-white p-3 rounded-xl border">
+                    <div class="flex-grow flex gap-2">
+                        <select onchange="window.selectCommon(${i}, this.value)" class="p-3 bg-slate-50 border rounded-xl font-bold text-xs">
+                            <option value="">快速選擇</option>
+                            ${COMMON_SERVICES.map(s => `<option value="${s}">${s}</option>`).join('')}
+                        </select>
+                        <input type="text" value="${it.name}" oninput="window.updItem(${i}, 'name', this.value)" placeholder="或自行輸入服務名稱" class="flex-grow p-3 bg-slate-50 border rounded-xl font-bold">
                     </div>
-                    ${item.name === '自訂' ? `<input type="text" value="${item.customName || ''}" placeholder="請輸入項目名稱" oninput="window.updateItemCustomName(${i}, this.value)" class="w-full p-3 border-2 border-orange-200 rounded-xl bg-orange-50 font-bold">` : ''}
+                    <div class="flex gap-2">
+                        <input type="number" value="${it.price}" oninput="window.updItem(${i}, 'price', this.value)" class="w-32 p-3 bg-slate-50 border rounded-xl font-black text-right">
+                        <button type="button" onclick="window.removeItem(${i})" class="text-slate-300 font-bold px-2">✕</button>
+                    </div>
                 </div>
             `).join('');
-            window.updateBasePriceDisplay();
         };
 
-        window.updateItemName = (i, n) => { window.currentFormData.serviceItems[i].name = n; window.renderServiceItems(); };
-        window.updateItemCustomName = (i, v) => { window.currentFormData.serviceItems[i].customName = v; };
-        window.updateItemPrice = (i, p) => { window.currentFormData.serviceItems[i].price = parseInt(p) || 0; window.updateBasePriceDisplay(); };
-        window.addServiceItem = () => { window.currentFormData.serviceItems.push({ name: '自訂', customName: '', price: 0 }); window.renderServiceItems(); };
-        window.removeServiceItem = (i) => { window.currentFormData.serviceItems.splice(i, 1); window.renderServiceItems(); };
-        window.updateBasePriceDisplay = () => {
-            const total = window.currentFormData.serviceItems.reduce((s, i) => s + (i.price || 0), 0);
-            const el = document.getElementById('form-base-price');
-            if (el) el.textContent = `NT$ ${total.toLocaleString()}`;
-        };
+        window.selectCommon = (i, val) => { if(!val) return; window.currentFormData.serviceItems[i].name = val; window.renderItems(); };
+        window.updItem = (i, k, v) => { window.currentFormData.serviceItems[i][k] = (k==='price' ? parseInt(v)||0 : v); };
+        window.addItem = () => { window.currentFormData.serviceItems.push({name:'', price:0}); window.renderItems(); };
+        window.removeItem = (i) => { window.currentFormData.serviceItems.splice(i,1); window.renderItems(); };
 
         window.renderQuoteMode = () => {
             const container = document.getElementById('mode-quote');
-            const base = window.currentFormData.serviceItems.reduce((s, i) => s + (i.price || 0), 0);
-            let fee = (window.currentFormData.paymentMethod === 'card' || window.currentFormData.invoiceEnabled) ? Math.round(base * 0.05) : 0;
-            const final = base + fee;
-            window.currentFormData.finalPrice = final;
+            const subtotal = window.currentFormData.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+            const isTaxRequired = (window.currentFormData.needsInvoice || window.currentFormData.paymentMethod === '信用卡');
+            const extraCharge = isTaxRequired ? Math.round(subtotal * 0.05) : 0;
+            const total = subtotal + extraCharge;
 
-            const paymentText = window.currentFormData.paymentMethod === 'cash' ? '現金' : (window.currentFormData.paymentMethod === 'transfer' ? '匯款' : '信用卡');
+            const displayBrand = window.currentFormData.carBrand === '其他 / 自訂品牌' ? window.currentFormData.customBrand : window.currentFormData.carBrand;
+            const displayModel = window.currentFormData.carModel === '其他自選車款' ? window.currentFormData.customModel : window.currentFormData.carModel;
+            const displaySales = window.currentFormData.salesPerson === '其他 / 自訂' ? window.currentFormData.customSales : window.currentFormData.salesPerson;
 
             container.innerHTML = `
-                <div class="hidden print-header flex justify-between items-center border-b-2 border-orange-500 pb-4 mb-4">
-                    <div><h1 class="text-3xl font-black text-orange-500 italic">AS TAIPEI</h1></div>
-                    <div class="text-right"><h2 class="text-xl font-bold">服務確認報價單</h2><p class="text-xs font-mono text-gray-500 tracking-widest">WORK ORDER: ${window.currentFormData.id}</p></div>
-                </div>
-                
-                <div class="flex justify-between items-end mb-6 no-print">
-                    <div><h2 class="text-3xl font-black border-b-4 border-orange-500 pb-1 text-gray-800">報價單預覽</h2></div>
-                    <div class="text-right"><p class="text-xl font-mono font-black text-gray-800">${window.currentFormData.id}</p></div>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
-                    <div class="lg:col-span-3 space-y-6">
-                        <!-- 資訊明細區 -->
-                        <div class="bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                            <h3 class="text-sm font-black text-orange-500 border-b-2 border-orange-100 pb-2 mb-4 uppercase tracking-widest">車主與服務資訊 INFO</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-[13px]">
-                                <div class="flex items-center"><span>客戶名稱：</span><span class="dash-line font-bold">${window.currentFormData.customerName || '-'}</span></div>
-                                <div class="flex items-center"><span>聯絡電話：</span><span class="dash-line font-mono font-bold">${window.currentFormData.phoneNumber || '-'}</span></div>
-                                <div class="flex items-center"><span>車牌號碼：</span><span class="dash-line font-black text-orange-600 text-base">${window.currentFormData.licensePlate || '-'}</span></div>
-                                <div class="flex items-center"><span>車款/型：</span><span class="dash-line font-bold">${window.currentFormData.carModel || '-'}</span></div>
-                                <div class="flex items-center"><span>服務業務：</span><span class="dash-line font-bold">${window.currentFormData.salesRep || '-'}</span></div>
-                                <div class="flex items-center"><span>付款方式：</span><span class="dash-line font-bold">${paymentText}${window.currentFormData.invoiceEnabled ? ' (含稅)' : ''}</span></div>
-                                <div class="flex items-center"><span>接車日期：</span><span class="dash-line font-mono">${window.currentFormData.receiveDate}</span></div>
-                                <div class="flex items-center"><span>交車日期：</span><span class="dash-line font-mono font-bold text-orange-600">${window.currentFormData.dueDate || window.currentFormData.receiveDate}</span></div>
-                            </div>
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-3 bg-white p-8 md:p-12 rounded-3xl shadow-2xl border-t-[12px] border-orange-500">
+                        <div class="flex justify-between items-start border-b-2 border-slate-100 pb-6 mb-8">
+                            <div><h1 class="text-4xl font-black tracking-tighter text-slate-950">AS TAIPEI</h1><p class="text-xs font-bold text-slate-400 mt-1 tracking-widest italic">頂級車漆保護膜與專業美容中心</p></div>
+                            <div class="text-right"><p class="text-[10px] font-black text-slate-400 uppercase">服務單號</p><p class="text-xl font-black font-mono text-orange-600">${window.currentFormData.id}</p></div>
                         </div>
 
-                        <!-- 服務清單表格 -->
-                        <div class="rounded-3xl border-2 border-gray-100 overflow-hidden shadow-sm bg-white">
-                            <table class="w-full text-left">
-                                <thead class="bg-gray-800 text-white text-xs uppercase"><tr><th class="p-4 px-6">項目 Description</th><th class="p-4 px-6 text-right w-40">金額 Amount</th></tr></thead>
-                                <tbody class="divide-y-2 divide-gray-50">
-                                    ${window.currentFormData.serviceItems.map(item => `<tr class="bg-white"><td class="p-4 px-6 font-bold text-gray-700">${item.name === '自訂' ? item.customName : item.name}</td><td class="p-4 px-6 text-right font-mono font-black text-gray-900 text-lg">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
-                                </tbody>
-                                <tfoot class="bg-orange-50 border-t-4 border-orange-200">
-                                    <tr class="text-gray-500"><td class="p-3 px-6 text-right font-bold text-xs uppercase">項目小計 Subtotal</td><td class="p-3 px-6 text-right font-mono font-bold">NT$ ${base.toLocaleString()}</td></tr>
-                                    <tr class="text-gray-500"><td class="p-3 px-6 text-right font-bold text-xs uppercase">手續費/稅額 (5%)</td><td class="p-3 px-6 text-right font-mono font-bold">NT$ ${fee.toLocaleString()}</td></tr>
-                                    <tr class="text-orange-600 bg-orange-100/50"><td class="p-5 px-6 text-right text-2xl font-black italic">總額 TOTAL AMOUNT</td><td class="p-5 px-6 text-right text-3xl font-black font-mono">NT$ ${final.toLocaleString()}</td></tr>
-                                </tfoot>
-                            </table>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4 mb-10 text-sm p-6 bg-slate-50 rounded-2xl border">
+                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">客戶/電話</p><p class="font-black">${window.currentFormData.customerName || '未留名'}<br>${window.currentFormData.customerPhone||''}</p></div>
+                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">車牌</p><p class="font-black text-lg uppercase">${window.currentFormData.licensePlate}</p></div>
+                            <div class="space-y-1 col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase">車輛資訊</p><p class="font-black">${displayBrand} ${displayModel}</p></div>
+                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">進場日期</p><p class="font-bold">${window.currentFormData.receiveDate}</p></div>
+                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">預計交車</p><p class="font-bold">${window.currentFormData.deliveryDate}</p></div>
+                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">支付方式</p><p class="font-bold">${window.currentFormData.paymentMethod}</p></div>
+                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">服務顧問</p><p class="font-black border-b border-black inline-block">${displaySales}</p></div>
                         </div>
 
-                        <!-- 備註與全寬簽名板 -->
-                        <div class="space-y-4">
-                            <!-- 備註區 (全寬) -->
-                            <div class="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl">
-                                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 border-b border-gray-200 pb-1 italic">備註事項 REMARKS</p>
-                                <p class="text-[14px] text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">${window.currentFormData.notes || '無特殊備註'}</p>
+                        <table class="w-full mb-10 text-sm overflow-hidden rounded-xl border">
+                            <thead class="bg-slate-900 text-white"><tr class="text-left"><th class="p-4">服務項目</th><th class="p-4 text-right">金額 (TWD)</th></tr></thead>
+                            <tbody class="divide-y">
+                                ${window.currentFormData.serviceItems.map(item => `<tr><td class="p-4 font-bold">${item.name}</td><td class="p-4 text-right font-black">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
+                                ${extraCharge > 0 ? `<tr class="bg-orange-50/50"><td class="p-4 font-bold italic">稅金/手續費 (5%)</td><td class="p-4 text-right font-black">NT$ ${extraCharge.toLocaleString()}</td></tr>` : ''}
+                            </tbody>
+                            <tfoot class="bg-slate-950 text-white"><tr><td class="p-4 text-right font-bold text-lg">本單總計</td><td class="p-4 text-right font-black text-3xl text-orange-500">NT$ ${total.toLocaleString()}</td></tr></tfoot>
+                        </table>
+
+                        <div class="space-y-10">
+                            <div class="info-section">
+                                <h3 class="info-title">⚠️ 施工品質驗收標準</h3>
+                                <p class="info-text">
+                                    車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。<br>
+                                    <span class="info-text-bold">微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</span><br>
+                                    在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業驗收標準。
+                                </p>
                             </div>
 
-                            <!-- 簽名區 (調整為全寬以最大化簽名空間) -->
-                            <div class="p-5 border-2 border-orange-100 rounded-2xl bg-white shadow-sm flex flex-col">
-                                <div class="flex justify-between items-center border-b border-orange-200 pb-2 mb-3">
-                                    <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest">客戶簽收 SIGNATURE</p>
-                                    <div class="flex gap-2 no-print">
-                                        <button onclick="window.clearSig()" class="text-[10px] px-3 py-1 bg-white border border-gray-200 text-gray-500 rounded-lg font-bold hover:bg-gray-50 transition-all">重填</button>
-                                        <button onclick="window.saveSig()" class="text-[10px] px-3 py-1 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600 shadow-sm transition-all">確認簽名</button>
+                            <div class="info-section">
+                                <h3 class="info-title">🛡️ 保護膜養護須知</h3>
+                                <div class="space-y-2 info-text">
+                                    <p><span class="info-text-bold">1. 48小時嚴禁洗車：</span>施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</p>
+                                    <p><span class="info-text-bold">2. 洗車務必擦乾：</span>洗車後請確實將水分擦乾，防止水垢產生。嚴禁高壓水槍近距離直噴膜面邊緣。</p>
+                                    <p><span class="info-text-bold">3. 初期霧感現象：</span>安裝後若有微霧感屬水分蒸發正常過程，視天候約 10 天後恢復高亮。</p>
+                                    <p><span class="info-text-bold">4. 專業保養建議：</span>建議每 3-6 個月回廠養護，可延長膜料壽命與撥水效果。</p>
+                                </div>
+                            </div>
+
+                            <div class="info-section-dim">
+                                <h3 class="info-title-dim">🚫 不在保固服務範圍之事項</h3>
+                                <div class="space-y-1 info-text-dim">
+                                    <p>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</p>
+                                    <p>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</p>
+                                    <p>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</p>
+                                    <p>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</p>
+                                    <p>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</p>
+                                    <p>6. 未經授權之加工：非本公司授權之第三方加工或撕除膜料者。</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mt-10 pt-8 border-t-4 border-slate-900">
+                                <div><p class="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">AS TAIPEI 簽章</p><div class="border-b-2 border-black w-48 font-black text-2xl italic pb-2">${displaySales}</div></div>
+                                <div class="space-y-4">
+                                    <p class="text-xs font-black uppercase flex items-center gap-2"><span>🖊️</span> 客戶簽署</p>
+                                    <div class="h-32 relative bg-slate-100 rounded-2xl border-2 border-slate-300">
+                                        ${window.currentFormData.isSigned ? `<img src="${window.currentFormData.signatureImage}" class="max-h-full mx-auto">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
                                     </div>
-                                </div>
-                                <div class="bg-gray-50 border border-dashed border-gray-300 rounded-xl overflow-hidden h-44 relative">
-                                    ${window.currentFormData.isSigned ? 
-                                        `<img src="${window.currentFormData.signatureImage}" class="w-full h-full object-contain">` : 
-                                        `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`
-                                    }
-                                </div>
-                                <div class="mt-4 flex justify-between items-end">
-                                    <span class="text-[10px] text-gray-400 italic">本人已確認並同意上述施工內容與條款</span>
-                                    <div class="text-right border-t-2 border-gray-100 pt-2 px-4">
-                                        <span class="text-[10px] font-black text-gray-400 block leading-none mb-1 uppercase">Consultant</span>
-                                        <span class="text-xl font-black italic text-gray-800">${window.currentFormData.salesRep}</span>
+                                    <div class="flex gap-2 no-print">
+                                        ${!window.currentFormData.isSigned ? `<button onclick="window.saveSig()" class="flex-grow bg-orange-600 text-white py-3 rounded-xl font-black text-sm">確認簽署</button>` : ''}
+                                        <button onclick="window.clearSig()" class="bg-slate-200 text-slate-600 px-4 py-3 rounded-xl font-bold text-sm">重設</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 側邊控制欄 -->
-                    <div class="lg:col-span-1 space-y-6 no-print">
-                        <div class="p-6 border-2 border-gray-100 rounded-3xl bg-white shadow-lg space-y-6">
-                            <p class="text-xs font-black text-gray-400 uppercase border-b pb-3 tracking-widest">結帳設定</p>
-                            <div class="space-y-4">
-                                <div class="space-y-1"><span class="text-xs font-bold text-gray-500">支付方式</span>
-                                    <select onchange="window.currentFormData.paymentMethod=this.value;window.renderQuoteMode();" class="w-full p-3 border-2 border-gray-100 rounded-xl font-bold bg-gray-50">
-                                        <option value="cash" ${window.currentFormData.paymentMethod==='cash'?'selected':''}>現金 (Cash)</option>
-                                        <option value="transfer" ${window.currentFormData.paymentMethod==='transfer'?'selected':''}>匯款 (Transfer)</option>
-                                        <option value="card" ${window.currentFormData.paymentMethod==='card'?'selected':''}>信用卡 (+5%)</option>
-                                    </select>
-                                </div>
-                                <label class="flex justify-between items-center cursor-pointer p-4 bg-gray-50 rounded-xl border-2 border-transparent hover:border-orange-200 transition-all">
-                                    <span class="text-sm font-bold text-gray-700">開立發票 (+5%)</span>
-                                    <input type="checkbox" ${window.currentFormData.invoiceEnabled?'checked':''} onchange="window.currentFormData.invoiceEnabled=this.checked;window.renderQuoteMode();" class="w-6 h-6 accent-orange-500">
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-3">
-                            <button onclick="window.saveToFirebase()" class="bg-gray-900 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-black transition-all">💾 儲存並存檔</button>
-                            <button onclick="window.print();" class="bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all">🖨️ 列印此單</button>
-                            <button onclick="window.setMode('form')" class="bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all">修改內容</button>
-                        </div>
+                    <div class="no-print space-y-4">
+                        <button onclick="window.saveToFirebase()" class="w-full bg-orange-500 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-orange-600">✅ 儲存工單紀錄</button>
+                        <button onclick="window.print()" class="w-full bg-slate-950 text-white py-5 rounded-2xl font-black text-xl">🖨️ 列印單據</button>
+                        <button onclick="window.setMode('form')" class="w-full text-slate-400 font-bold underline py-2">⬅️ 返回修改內容</button>
                     </div>
                 </div>
             `;
@@ -500,37 +476,32 @@
             sigC = document.getElementById('sig-canvas'); if(!sigC) return;
             sigX = sigC.getContext('2d');
             sigC.width = sigC.offsetWidth; sigC.height = sigC.offsetHeight;
-            sigX.strokeStyle = "#111827"; sigX.lineWidth = 3; sigX.lineJoin = "round"; sigX.lineCap = "round";
-            const getP = (e) => { const r = sigC.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; return { x: clientX - r.left, y: clientY - r.top }; };
+            sigX.strokeStyle = "#000"; sigX.lineWidth = 3; sigX.lineCap = "round";
+            const getP = (e) => { const r = sigC.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
             const s = (e) => { drawing=true; const p=getP(e); sigX.beginPath(); sigX.moveTo(p.x, p.y); };
             const m = (e) => { if(!drawing) return; const p=getP(e); sigX.lineTo(p.x, p.y); sigX.stroke(); };
-            const stop = () => drawing=false;
-            sigC.addEventListener('mousedown', s); sigC.addEventListener('mousemove', m); window.addEventListener('mouseup', stop);
-            sigC.addEventListener('touchstart', (ev)=>{ev.preventDefault(); s(ev);}, {passive:false}); 
-            sigC.addEventListener('touchmove', (ev)=>{ev.preventDefault(); m(ev);}, {passive:false});
-            sigC.addEventListener('touchend', stop);
+            sigC.addEventListener('mousedown', s); sigC.addEventListener('mousemove', m); window.addEventListener('mouseup', ()=>drawing=false);
+            sigC.addEventListener('touchstart', (e)=>{e.preventDefault(); s(e);}, {passive:false}); 
+            sigC.addEventListener('touchmove', (e)=>{e.preventDefault(); m(e);}, {passive:false});
         };
-
-        window.clearSig = () => { window.currentFormData.isSigned=false; window.currentFormData.signatureImage=null; window.renderQuoteMode(); };
-        window.saveSig = () => { const canvas = document.getElementById('sig-canvas'); if(!canvas) return; window.currentFormData.signatureImage = canvas.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
+        
+        window.saveSig = () => { const c = document.getElementById('sig-canvas'); window.currentFormData.signatureImage = c.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
+        window.clearSig = () => { window.currentFormData.isSigned = false; window.currentFormData.signatureImage = null; window.renderQuoteMode(); };
 
         window.saveToFirebase = async () => {
-            const data = { 
-                ...window.currentFormData, 
-                services: window.currentFormData.serviceItems.map(s => ({ name: s.name==='自訂'?s.customName:s.name, price: s.price })), 
-                updatedAt: serverTimestamp() 
-            };
-            const saveData = { ...data }; delete saveData.serviceItems;
             try {
-                await setDoc(doc(db, `artifacts/as-taipei-app/public/data/workOrders`, data.id), saveData);
-                window.showMessageModal("儲存成功", "工單已正式存檔。");
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', window.currentFormData.id), { ...window.currentFormData, updatedAt: serverTimestamp() });
+                window.showMessageModal("儲存成功", "工單已成功儲存。");
                 window.setMode('history');
-            } catch (e) { window.showMessageModal("錯誤", "儲存失敗，請檢查網路。"); }
+            } catch(e) { window.showMessageModal("儲存失敗", "請檢查網路。"); }
         };
 
-        window.deleteWorkOrder = (id) => { if(confirm(`確定要刪除工單 ${id} 嗎？`)) deleteDoc(doc(db, `artifacts/as-taipei-app/public/data/workOrders`, id)); };
-        window.showMessageModal = (t, b) => { document.getElementById('modal-title').textContent=t; document.getElementById('modal-body').textContent=b; document.getElementById('message-modal').classList.remove('hidden'); };
         window.closeMessageModal = () => document.getElementById('message-modal').classList.add('hidden');
+        window.showMessageModal = (t, b) => {
+            document.getElementById('modal-title').textContent = t; document.getElementById('modal-body').textContent = b;
+            document.getElementById('modal-footer').innerHTML = `<button onclick="closeMessageModal()" class="flex-grow bg-slate-900 text-white p-4 rounded-xl font-bold">確認</button>`;
+            document.getElementById('message-modal').classList.remove('hidden');
+        };
 
         initializeFirebase();
     </script>
