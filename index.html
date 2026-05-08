@@ -17,7 +17,6 @@
         .info-text { font-size: 13px; line-height: 1.7; color: #334155; text-align: justify; }
         .info-text-bold { font-weight: 700; color: #0f172a; }
 
-        /* 弱化保固除外事項樣式：字體更小 */
         .info-section-dim { border-left: 4px solid #cbd5e1; padding-left: 16px; margin-bottom: 24px; }
         .info-title-dim { font-weight: 700; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
         .info-text-dim { font-size: 11px; line-height: 1.5; color: #cbd5e1; text-align: justify; }
@@ -27,6 +26,7 @@
             .no-print { display: none !important; }
             .print-container { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
             .info-section { border-left: 4px solid #f97316 !important; }
+            .bg-slate-900 { background-color: #0f172a !important; color: white !important; -webkit-print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -62,7 +62,15 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'as-taipei-pro';
         let app, db, auth;
 
@@ -77,7 +85,7 @@
         const CAR_DATABASE = {
             "Porsche 保時捷": ["911 GT3 RS", "911 Carrera", "Taycan", "Macan", "Cayenne Coupé", "718 Cayman", "Panamera"],
             "Ferrari 法拉利": ["296 GTB", "SF90 Stradale", "Roma", "Purosangue", "F8 Tributo", "812 Superfast"],
-            "Lamborghini 藍寶經尼": ["Urus Performante", "Huracán Sterrato", "Revuelto", "Aventador SVJ"],
+            "Lamborghini 藍寶堅尼": ["Urus Performante", "Huracán Sterrato", "Revuelto", "Aventador SVJ"],
             "McLaren 麥拉倫": ["750S Spider", "Artura", "GT", "720S", "765LT"],
             "Maserati 瑪莎拉蒂": ["MC20 Cielo", "Grecale", "Levante", "GranTurismo"],
             "Aston Martin 奧斯頓馬丁": ["DBX 707", "DBS", "Vantage", "DB12"],
@@ -102,19 +110,25 @@
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
+                
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         document.getElementById('loading').classList.add('hidden');
                         document.getElementById('nav-bar').classList.remove('hidden');
                         setupFirestoreListener();
+                        window.setMode('history');
                     }
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error(e); 
+                document.getElementById('loading').innerHTML = `<div class="text-red-500 p-10">資料庫連線失敗，請檢查 Firebase 設定。</div>`;
+            }
         };
 
         const setupFirestoreListener = () => {
@@ -122,7 +136,7 @@
             onSnapshot(q, (snap) => {
                 window.workOrders = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.id.localeCompare(a.id));
                 if (window.currentMode === 'history') window.renderHistoryMode();
-            }, (err) => console.error(err));
+            }, (err) => console.error("Firestore Error:", err));
         };
 
         window.setMode = (mode, data = null, isNew = false) => {
@@ -227,7 +241,6 @@
             `;
         };
 
-        // 修復刪除邏輯路徑
         window.deleteOrder = async (id) => {
             if (confirm(`確定要刪除單號 ${id} 嗎？`)) {
                 try {
@@ -248,7 +261,7 @@
                 return {
                     "工單編號": o.id, "日期": o.receiveDate, "客戶姓名": o.customerName, "電話": o.customerPhone, "車牌": o.licensePlate,
                     "車型": (o.carBrand === '其他 / 自訂品牌' ? o.customBrand : o.carBrand) + " " + (o.carModel === '其他自選車款' ? o.customModel : o.carModel),
-                    "支付方式": o.paymentMethod, "小計": sub, "稅金/手續費": tax, "總金額": sub + tax
+                    "支付方式": o.paymentMethod, "小計": sub, "稅金/手續費": tax, "總金額": sub + tax, "備註": o.notes
                 };
             });
             const ws = XLSX.utils.json_to_sheet(data);
@@ -295,11 +308,19 @@
                             </label>
                         </div>
                     </div>
+
                     <div class="bg-slate-50 p-6 rounded-3xl border">
                         <h3 class="font-black mb-4">項目明細</h3>
                         <div id="items-container" class="space-y-3"></div>
                         <button type="button" onclick="window.addItem()" class="mt-4 w-full py-4 border-2 border-dashed rounded-2xl text-slate-400 font-bold">+ 新增項目</button>
                     </div>
+
+                    <!-- 備註欄位 -->
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase">內部備註 / 特殊事項</label>
+                        <textarea id="f-notes" rows="3" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold placeholder:text-slate-300" placeholder="記錄車輛瑕疵、客戶特殊要求或施工細節...">${window.currentFormData.notes || ''}</textarea>
+                    </div>
+
                     <button id="btn-next" class="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-2xl shadow-2xl">確認內容並預覽</button>
                 </div>
             `;
@@ -322,7 +343,8 @@
                     carModel: document.getElementById('f-carModel').value,
                     customModel: document.getElementById('f-customModel').value,
                     salesPerson: document.getElementById('f-salesPerson').value,
-                    customSales: document.getElementById('f-customSales').value
+                    customSales: document.getElementById('f-customSales').value,
+                    notes: document.getElementById('f-notes').value
                 });
                 window.setMode('quote');
             };
@@ -330,19 +352,25 @@
 
         window.onBrandChange = (b, updateModel = true) => {
             const input = document.getElementById('f-customBrand');
-            if(b === '其他 / 自訂品牌') input.classList.remove('hidden');
-            else input.classList.add('hidden');
+            if(input) {
+                if(b === '其他 / 自訂品牌') input.classList.remove('hidden');
+                else input.classList.add('hidden');
+            }
             if(updateModel) window.fillModels(b);
         };
         window.onModelChange = (m) => {
             const input = document.getElementById('f-customModel');
-            if(m === '其他自選車款') input.classList.remove('hidden');
-            else input.classList.add('hidden');
+            if(input) {
+                if(m === '其他自選車款') input.classList.remove('hidden');
+                else input.classList.add('hidden');
+            }
         };
         window.onSalesChange = (s) => {
             const input = document.getElementById('f-customSales');
-            if(s === '其他 / 自訂') input.classList.remove('hidden');
-            else input.classList.add('hidden');
+            if(input) {
+                if(s === '其他 / 自訂') input.classList.remove('hidden');
+                else input.classList.add('hidden');
+            }
         };
 
         window.fillModels = (b) => {
@@ -412,6 +440,13 @@
                             </tbody>
                             <tfoot class="bg-slate-950 text-white"><tr><td class="p-4 text-right font-bold text-lg">本單總計</td><td class="p-4 text-right font-black text-3xl text-orange-500">NT$ ${total.toLocaleString()}</td></tr></tfoot>
                         </table>
+
+                        ${window.currentFormData.notes ? `
+                        <div class="mb-10 p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                            <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">備註事項</p>
+                            <p class="text-sm font-bold text-slate-700 whitespace-pre-wrap">${window.currentFormData.notes}</p>
+                        </div>
+                        ` : ''}
 
                         <div class="space-y-10">
                             <div class="info-section">
@@ -490,10 +525,16 @@
 
         window.saveToFirebase = async () => {
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', window.currentFormData.id), { ...window.currentFormData, updatedAt: serverTimestamp() });
-                window.showMessageModal("儲存成功", "工單已成功儲存。");
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', window.currentFormData.id), { 
+                    ...window.currentFormData, 
+                    updatedAt: serverTimestamp() 
+                });
+                window.showMessageModal("儲存成功", "工單已成功儲存並同步至雲端。");
                 window.setMode('history');
-            } catch(e) { window.showMessageModal("儲存失敗", "請檢查網路。"); }
+            } catch(e) { 
+                console.error(e);
+                window.showMessageModal("儲存失敗", "請檢查網路連線。"); 
+            }
         };
 
         window.closeMessageModal = () => document.getElementById('message-modal').classList.add('hidden');
