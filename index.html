@@ -3,548 +3,471 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AS TAIPEI 專業服務系統 v7.9</title>
+    <title>AS Coating | 專業汽車美容管理系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Pacifico&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        :root { --primary-orange: #f97316; }
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #0f172a; }
-        .signature-canvas { border: 2px solid #e2e8f0; background-color: #fff; touch-action: none; cursor: crosshair; border-radius: 12px; }
+        :root { --primary: #FF8E3C; --secondary: #00BAFF; --accent: #20C997; --bg: #F8FAFC; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--bg); color: #334155; }
+        .vibrant-gradient { background: linear-gradient(135deg, #FF8E3C, #FF5F6D); }
+        .quote-font { font-family: 'Pacifico', cursive; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .day-cell { min-height: 110px; border-radius: 12px; background: white; border: 1px solid #E2E8F0; padding: 6px; position: relative; transition: all 0.2s; }
+        .day-cell.today { border: 2px solid var(--secondary); background: #F0F9FF; }
+        .day-cell.other-month { opacity: 0.3; background: #F1F5F9; }
+        .badge-count { position: absolute; top: 4px; right: 4px; background: var(--secondary); color: white; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: bold; }
         
-        .info-section { border-left: 4px solid var(--primary-orange); padding-left: 16px; margin-bottom: 24px; }
-        .info-title { font-weight: 900; font-size: 16px; color: #1e293b; margin-bottom: 8px; }
-        .info-text { font-size: 13px; line-height: 1.7; color: #334155; text-align: justify; }
-        .info-text-bold { font-weight: 700; color: #0f172a; }
-
-        .info-section-dim { border-left: 4px solid #cbd5e1; padding-left: 16px; margin-bottom: 24px; }
-        .info-title-dim { font-weight: 700; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
-        .info-text-dim { font-size: 11px; line-height: 1.5; color: #cbd5e1; text-align: justify; }
-
-        @media print {
-            body { background-color: white !important; }
-            .no-print { display: none !important; }
-            .print-container { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
-            .info-section { border-left: 4px solid #f97316 !important; }
-            .bg-slate-900 { background-color: #0f172a !important; color: white !important; -webkit-print-color-adjust: exact; }
-        }
+        /* 拖移與交互樣式 */
+        .appt-item { cursor: grab; position: relative; transition: all 0.2s; margin-bottom: 2px; }
+        .appt-item:active { cursor: grabbing; opacity: 0.7; transform: scale(0.98); }
+        .drag-over-active { background-color: #FFF7ED !important; border-color: #FF8E3C !important; border-style: dashed !important; }
+        
+        .preview-overlay { background: rgba(15, 23, 42, 0.95); z-index: 100; position: fixed; inset: 0; overflow-y: auto; }
+        .preview-paper { background: white; width: 210mm; min-height: 297mm; padding: 20mm; margin: 2rem auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); color: #000; }
+        
+        /* 原地修改樣式強化 */
+        .inline-edit { background: transparent; border: none; width: 100%; font-weight: inherit; color: inherit; padding: 2px 4px; border-radius: 4px; outline: none; transition: background 0.2s, box-shadow 0.2s; }
+        .inline-edit:focus { background: white; box-shadow: 0 0 0 2px #FF8E3C; color: #334155; }
+        input[type="date"].inline-edit, input[type="time"].inline-edit { cursor: pointer; }
+        
+        @media print { .no-print { display: none !important; } .preview-overlay { position: static; background: white; } .preview-paper { box-shadow: none; margin: 0; width: 100%; padding: 10mm; } }
     </style>
 </head>
-<body class="min-h-screen">
+<body>
+    <div id="app" class="min-h-screen pb-20">
+        <!-- 導航 -->
+        <nav class="vibrant-gradient text-white p-4 sticky top-0 z-50 shadow-lg no-print">
+            <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-3 mb-4 md:mb-0">
+                    <div class="bg-white p-2 rounded-2xl"><i class="fas fa-car-wash text-orange-500 text-xl"></i></div>
+                    <span class="text-2xl font-bold tracking-tighter uppercase">AS COATING</span>
+                </div>
+                <div class="flex space-x-1 overflow-x-auto w-full md:w-auto">
+                    <button v-for="tab in tabs" @click="currentTab = tab.id" :class="currentTab === tab.id ? 'bg-white text-orange-500' : 'hover:bg-white/20'" class="px-5 py-2 rounded-xl font-bold transition-all whitespace-nowrap">
+                        {{ tab.name }}
+                    </button>
+                </div>
+            </div>
+        </nav>
 
-    <header class="no-print bg-slate-950 py-6 text-center shadow-xl">
-        <h1 class="text-4xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1>
-        <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">頂級汽車美容美研管理系統</p>
-    </header>
+        <div class="container mx-auto p-4 md:p-8">
+            <!-- 標頭資訊 -->
+            <div class="bg-white rounded-3xl p-6 mb-8 shadow-sm flex flex-col md:flex-row justify-between items-center border-l-8 border-orange-400 no-print">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-slate-100 p-2 rounded-2xl flex items-center space-x-2">
+                        <button @click="changeMonth(-1)" class="p-2 hover:bg-white rounded-xl transition"><i class="fas fa-chevron-left"></i></button>
+                        <h2 class="text-2xl font-black text-slate-800 w-32 text-center">{{ currentYear }} / {{ currentMonth + 1 }}</h2>
+                        <button @click="changeMonth(1)" class="p-2 hover:bg-white rounded-xl transition"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div><p class="text-slate-400 font-medium">目標達成：<span class="text-orange-500 font-bold">{{ stats.goalPercent }}%</span></p></div>
+                </div>
+                <div class="mt-4 md:mt-0 text-center"><p class="quote-font text-2xl text-orange-400">" {{ cheerQuote }} "</p></div>
+            </div>
 
-    <main id="app-container" class="max-w-6xl mx-auto px-4 py-8 print-container">
-        <div id="nav-bar" class="hidden flex justify-center gap-4 mb-8 no-print">
-            <button onclick="setMode('history')" class="bg-white text-slate-700 p-4 px-8 rounded-2xl font-black shadow-sm border hover:bg-gray-100 transition-all">📋 歷史紀錄與統計</button>
-            <button onclick="setMode('form', null, true)" class="bg-orange-500 text-white p-4 px-8 rounded-2xl font-black shadow-lg hover:bg-orange-600 transition-all">➕ 新增工單</button>
+            <!-- 1. 店面總覽 -->
+            <div v-if="currentTab === 'dashboard'" class="animate-fadeIn">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-blue-400"><p class="text-slate-400 text-xs font-bold uppercase">本月累計營收</p><h3 class="text-3xl font-black text-blue-600">${{ stats.totalRevenue.toLocaleString() }}</h3></div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-slate-400"><p class="text-slate-400 text-xs font-bold uppercase">本月支出</p><h3 class="text-3xl font-black text-slate-600">${{ stats.totalCost.toLocaleString() }}</h3></div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-emerald-400"><p class="text-slate-400 text-xs font-bold uppercase">本月估計淨利</p><h3 class="text-3xl font-black text-emerald-600">${{ (stats.totalRevenue - stats.totalCost).toLocaleString() }}</h3></div>
+                    <div @click="jumpToUnpaid" class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-rose-400 cursor-pointer hover:bg-rose-50 transition"><p class="text-slate-400 text-xs font-bold uppercase">未收帳餘額</p><h3 class="text-3xl font-black text-rose-500">${{ stats.unpaidAmount.toLocaleString() }}</h3></div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-orange-400"><p class="text-slate-400 text-xs font-bold uppercase">業績目標差額</p><h3 class="text-3xl font-black text-orange-600">${{ stats.gap.toLocaleString() }}</h3></div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm">
+                        <div class="flex justify-between items-center mb-8"><h3 class="text-xl font-black text-slate-800">營運分析報表</h3><button @click="showPreview('dashboard')" class="bg-slate-800 text-white px-5 py-2 rounded-xl text-xs font-bold"><i class="fas fa-print mr-2"></i>生成詳細總覽報表</button></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-slate-50 p-6 rounded-3xl"><p class="text-slate-400 text-xs font-bold mb-2">每日平均應達成營收</p><h4 class="text-3xl font-black text-blue-600">${{ Math.round(goal.targetRevenue / goal.workingDays).toLocaleString() }}</h4></div>
+                            <div class="bg-slate-50 p-6 rounded-3xl"><p class="text-slate-400 text-xs font-bold mb-2">建議進場台數</p><h4 class="text-3xl font-black text-emerald-500">{{ Math.ceil(stats.gap / (stats.avgTicket || 5000)) }} 台</h4></div>
+                            <div class="bg-slate-50 p-6 rounded-3xl md:col-span-2"><p class="text-slate-400 text-xs font-bold mb-2">單車平均實收收費 (自動計算)</p><h4 class="text-3xl font-black text-slate-700">${{ stats.avgTicket.toLocaleString() }}</h4></div>
+                        </div>
+                    </div>
+                    <div class="bg-orange-50 p-8 rounded-[2.5rem] shadow-sm flex flex-col items-center justify-center text-center border-2 border-dashed border-orange-200">
+                        <div class="bg-white p-4 rounded-full shadow-lg mb-6 text-orange-500 text-3xl"><i class="fas fa-fire"></i></div>
+                        <h3 class="text-2xl font-black text-orange-600 mb-2">老闆加油！</h3>
+                        <p class="text-slate-500 font-medium">本月已接待 {{ stats.totalCases }} 台車，<br>持續維持品質，業績自然滾滾來！</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 工作紀錄 -->
+            <div v-if="currentTab === 'records'" class="animate-fadeIn">
+                <div class="bg-white p-6 rounded-3xl shadow-sm mb-8 no-print border-b-4 border-blue-500">
+                    <h3 class="font-black text-lg mb-4 text-slate-700">新增工作紀錄</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+                        <input type="date" v-model="newRecord.date" class="border p-3 rounded-xl text-sm bg-slate-50 font-bold">
+                        <input type="text" v-model="newRecord.customer" placeholder="客戶名稱" class="border p-3 rounded-xl text-sm">
+                        <input type="text" v-model="newRecord.carNumber" placeholder="車牌號碼" class="border p-3 rounded-xl text-sm uppercase">
+                        <input type="text" v-model="newRecord.carModel" placeholder="車種" class="border p-3 rounded-xl text-sm">
+                        <input type="text" v-model="newRecord.carColor" placeholder="顏色" class="border p-3 rounded-xl text-sm">
+                        <input type="number" v-model="newRecord.price" placeholder="金額" class="border p-3 rounded-xl text-sm font-bold text-blue-600">
+                    </div>
+                    <div class="flex space-x-3">
+                        <input type="text" v-model="newRecord.item" placeholder="施工項目與詳細備註" class="flex-grow border p-3 rounded-xl text-sm">
+                        <div class="flex items-center space-x-2 bg-rose-50 px-4 rounded-xl"><input type="checkbox" v-model="newRecord.isUnpaid" id="newUnpaid" class="w-5 h-5 accent-rose-500"><label for="newUnpaid" class="text-xs font-black text-rose-500 cursor-pointer">未收帳</label></div>
+                        <button @click="addRecord" class="vibrant-gradient text-white px-8 rounded-xl font-black">儲存紀錄</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between mb-6 gap-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="relative"><i class="fas fa-search absolute left-4 top-4 text-slate-400"></i><input type="text" v-model="searchKeyword" placeholder="精準搜尋客戶名稱 (完全一致)..." class="pl-12 pr-4 py-3 bg-white border-none rounded-2xl shadow-sm w-80 font-bold"></div>
+                        <button @click="showPreview('records')" class="bg-slate-800 text-white px-6 py-3 rounded-2xl font-bold shadow-sm"><i class="fas fa-download mr-2"></i>下載清單/對帳報表</button>
+                    </div>
+                    <div v-if="searchKeyword && filteredRecords.length > 0" class="bg-orange-600 text-white px-6 py-4 rounded-3xl shadow-xl flex items-center space-x-8 animate-bounce-in">
+                        <div><p class="text-[10px] opacity-70 font-bold">對帳客戶：{{ searchKeyword }}</p><p class="text-xl font-black">${{ filteredTotalUnpaid.toLocaleString() }} (未收)</p></div>
+                        <button @click="showPreview('records')" class="bg-white/20 px-4 py-2 rounded-xl text-xs font-bold">生成對帳單</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-slate-400 text-xs font-black"><tr><th class="px-6 py-4">日期</th><th class="px-6 py-4">客戶名稱</th><th class="px-6 py-4">車號</th><th class="px-6 py-4">車種/顏色</th><th class="px-6 py-4">項目/備註</th><th class="px-6 py-4">金額</th><th class="px-6 py-4 text-center">未收</th><th class="px-6 py-4 text-center">操作</th></tr></thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="r in filteredRecords" :key="r.id" class="hover:bg-slate-50">
+                                <td class="px-6 py-4"><input type="date" v-model="r.date" @change="updateRecord(r)" class="inline-edit font-bold text-slate-600 text-xs"></td>
+                                <td class="px-6 py-4 font-black"><input type="text" v-model="r.customer" @change="updateRecord(r)" class="inline-edit font-black"></td>
+                                <td class="px-6 py-4 uppercase font-bold text-slate-600"><input type="text" v-model="r.carNumber" @change="updateRecord(r)" class="inline-edit uppercase"></td>
+                                <td class="px-6 py-4"><input type="text" v-model="r.carModel" @change="updateRecord(r)" placeholder="車種" class="inline-edit text-xs mb-1"><input type="text" v-model="r.carColor" @change="updateRecord(r)" placeholder="顏色" class="inline-edit text-[10px] text-slate-500"></td>
+                                <td class="px-6 py-4"><input type="text" v-model="r.item" @change="updateRecord(r)" placeholder="項目與備註" class="inline-edit text-sm"></td>
+                                <td class="px-6 py-4 font-black text-blue-600"><input type="number" v-model.number="r.price" @change="updateRecord(r)" class="inline-edit text-blue-600 font-black"></td>
+                                <td class="px-6 py-4 text-center"><input type="checkbox" v-model="r.isUnpaid" @change="updateRecord(r)" class="w-6 h-6 accent-rose-500 cursor-pointer"></td>
+                                <td class="px-6 py-4 text-center"><button @click.stop.prevent="deleteItem('records', r.id)" class="text-rose-300 hover:text-rose-500 transition"><i class="fas fa-trash-alt"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. 預約清單 -->
+            <div v-if="currentTab === 'appointments'" class="animate-fadeIn">
+                <div class="bg-white p-6 rounded-3xl shadow-sm mb-8">
+                    <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-black text-slate-800">預約調度日曆 (支援拖移與快速刪除)</h3><button @click="showPreview('appointments')" class="bg-slate-800 text-white px-6 py-2 rounded-xl font-black no-print">列印預約明細</button></div>
+                    <div class="calendar-grid mb-2"><div v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="text-center font-black text-slate-400 text-xs py-2">週{{ w }}</div></div>
+                    <div class="calendar-grid">
+                        <div v-for="day in calendarDays" :key="day.date" 
+                            :class="[day.isCurrentMonth ? '' : 'other-month', day.isToday ? 'today' : '']" 
+                            class="day-cell"
+                            @dragover.prevent="dragOver($event)"
+                            @dragleave="dragLeave($event)"
+                            @drop.prevent="onDrop($event, day.date)">
+                            
+                            <div class="text-xs font-black mb-1 flex justify-between"><span :class="day.isToday ? 'text-blue-500' : 'text-slate-400'">{{ day.day }}</span><span v-if="day.appts.length > 0" class="badge-count">{{ day.appts.length }}</span></div>
+                            <div class="space-y-1 h-16 overflow-y-auto">
+                                <div v-for="appt in day.appts" :key="appt.id" 
+                                    :draggable="!appt.isPeriodic" 
+                                    @dragstart="onDragStart($event, appt)"
+                                    class="appt-item group text-[9px] p-1 rounded font-bold flex justify-between items-center z-10" 
+                                    :class="appt.isPeriodic ? 'bg-orange-100 text-orange-700 border-l-2 border-orange-500' : 'bg-blue-100 text-blue-700 cursor-move'">
+                                    
+                                    <span class="truncate pointer-events-none">{{ appt.time }} {{ appt.customer }}</span>
+                                    <button type="button" @mousedown.stop @click.stop.prevent="deleteItem('appointments', appt.id)" class="text-rose-500 hover:text-rose-700 px-1 z-20 cursor-pointer" title="刪除預約"><i class="fas fa-times-circle pointer-events-none"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 rounded-3xl shadow-sm border-2 border-dashed border-orange-200 no-print mb-8">
+                    <h4 class="font-black text-orange-600 mb-4">預約登記</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                        <input type="date" v-model="newAppt.date" class="border p-3 rounded-xl font-bold text-slate-700">
+                        <input type="time" v-model="newAppt.time" class="border p-3 rounded-xl font-bold text-slate-700">
+                        <input type="text" v-model="newAppt.customer" placeholder="客戶名稱" class="border p-3 rounded-xl">
+                        <input type="text" v-model="newAppt.carModel" placeholder="車種" class="border p-3 rounded-xl">
+                        <input type="text" v-model="newAppt.item" placeholder="施工項目與備註" class="border p-3 rounded-xl">
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl flex flex-wrap gap-4 items-center">
+                        <span class="text-xs font-black text-slate-400 italic">週期設定：</span>
+                        <div v-for="(dayName, idx) in ['一','二','三','四','五','六','日']" :key="idx" class="flex items-center space-x-2">
+                            <input type="checkbox" v-model="newAppt.periodicDays" :value="[1,2,3,4,5,6,0][idx]" class="w-5 h-5 accent-orange-500">
+                            <span class="text-xs font-bold">週{{ dayName }}</span>
+                        </div>
+                        <button @click="addAppointment" class="bg-blue-600 text-white px-10 py-3 rounded-2xl font-black ml-auto shadow-lg">確認預約</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden no-print">
+                    <div class="bg-slate-50 px-6 py-4 border-b border-slate-100"><h4 class="font-black text-slate-700">預約清單明細 (直接點擊欄位即可原地修改)</h4></div>
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-100 text-slate-400 text-[10px] font-black"><tr><th class="px-6 py-3">預約日期</th><th class="px-6 py-3">時間</th><th class="px-6 py-3">客戶名稱</th><th class="px-6 py-3">車種/項目備註</th><th class="px-6 py-3 text-center">週期設定 (點擊切換)</th><th class="px-6 py-3 text-center">操作</th></tr></thead>
+                        <tbody class="divide-y divide-slate-50">
+                            <tr v-for="a in sortedAppointments" :key="a.id" class="hover:bg-slate-50">
+                                <td class="px-6 py-4"><input type="date" v-model="a.date" @change="updateAppt(a)" class="inline-edit font-bold text-xs"></td>
+                                <td class="px-6 py-4 text-blue-500 font-bold"><input type="time" v-model="a.time" @change="updateAppt(a)" class="inline-edit"></td>
+                                <td class="px-6 py-4"><input type="text" v-model="a.customer" @change="updateAppt(a)" class="inline-edit font-black"></td>
+                                <td class="px-6 py-4"><input type="text" v-model="a.carModel" @change="updateAppt(a)" placeholder="車種" class="inline-edit text-xs mb-1"><input type="text" v-model="a.item" @change="updateAppt(a)" placeholder="項目與備註" class="inline-edit text-[10px] text-slate-400"></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex justify-center gap-1">
+                                        <button v-for="(w, idx) in ['日','一','二','三','四','五','六']" :key="idx" @click="toggleApptDay(a, idx)" :class="(a.periodicDays || []).includes(idx) ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400'" class="w-6 h-6 rounded text-[10px] font-bold transition-all shadow-sm">{{ w }}</button>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-center"><button @click.stop.prevent="deleteItem('appointments', a.id)" class="text-rose-300 hover:text-rose-500 transition"><i class="fas fa-trash-alt"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. 固定開支 -->
+            <div v-if="currentTab === 'expenses'" class="animate-fadeIn">
+                <div class="bg-white p-6 rounded-3xl shadow-sm mb-8 no-print border-b-4 border-slate-700">
+                    <div class="flex justify-between items-center mb-6"><h3 class="font-black text-lg text-slate-700">固定開支記帳</h3><button @click="showPreview('expenses')" class="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl font-bold">生成詳細支出報表</button></div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="date" v-model="newExpense.date" class="border p-3 rounded-xl bg-slate-50 font-bold text-slate-700">
+                        <select v-model="newExpense.category" class="border p-3 rounded-xl bg-slate-50 font-bold"><option>藥水/耗材</option><option>薪水</option><option>店租</option><option>勞健保</option><option>水電費</option><option>其他</option></select>
+                        <input type="number" v-model="newExpense.amount" placeholder="金額" class="border p-3 rounded-xl font-black text-rose-500">
+                        <button @click="addExpense" class="bg-slate-800 text-white rounded-xl font-black">儲存支出</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-slate-400 text-xs font-black"><tr><th class="px-6 py-4">日期</th><th class="px-6 py-4">類別</th><th class="px-6 py-4 text-right">金額</th><th class="px-6 py-4">備註</th><th class="px-6 py-4 text-center">操作</th></tr></thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="e in filteredExpenses" :key="e.id" class="hover:bg-slate-50">
+                                <td class="px-6 py-4"><input type="date" v-model="e.date" @change="updateExpense(e)" class="inline-edit font-bold text-xs text-slate-600"></td>
+                                <td class="px-6 py-4"><select v-model="e.category" @change="updateExpense(e)" class="inline-edit font-bold"><option>藥水/耗材</option><option>薪水</option><option>店租</option><option>勞健保</option><option>水電費</option><option>其他</option></select></td>
+                                <td class="px-6 py-4 font-black text-rose-500"><input type="number" v-model.number="e.amount" @change="updateExpense(e)" class="inline-edit text-rose-500 font-black text-right"></td>
+                                <td class="px-6 py-4"><input type="text" v-model="e.notes" @change="updateExpense(e)" placeholder="支出備註" class="inline-edit text-sm text-slate-500"></td>
+                                <td class="px-6 py-4 text-center"><button @click.stop.prevent="deleteItem('expenses', e.id)" class="text-rose-300 hover:text-rose-500 transition"><i class="fas fa-trash-alt"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 5. 設定 -->
+            <div v-if="currentTab === 'settings'" class="animate-fadeIn max-w-xl mx-auto">
+                <div class="bg-white p-10 rounded-[3rem] shadow-xl border-t-8 border-orange-400 text-center">
+                    <h2 class="text-3xl font-black mb-8">經營目標設定</h2>
+                    <div class="space-y-8">
+                        <div><label class="block font-black text-slate-500 text-sm mb-2">本月預期營業額 (NTD)</label><input type="number" v-model="goal.targetRevenue" class="w-full bg-slate-50 border-none p-6 rounded-3xl text-4xl font-black text-blue-600 text-center outline-none"></div>
+                        <div><label class="block font-black text-slate-500 text-sm mb-2">本月預計上班天數</label><input type="number" v-model="goal.workingDays" class="w-full bg-slate-50 border-none p-6 rounded-3xl text-4xl font-black text-orange-500 text-center outline-none"></div>
+                        <button @click="saveGoal" class="w-full vibrant-gradient text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl">儲存設定</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div id="loading" class="text-center py-20 text-slate-400 font-bold italic">系統初始化中...</div>
-        <div id="mode-history" class="hidden"></div>
-        <div id="mode-form" class="hidden"></div>
-        <div id="mode-quote" class="hidden"></div>
-    </main>
+        <!-- 報表預覽 (詳細化處理) -->
+        <div v-if="previewType" class="preview-overlay no-print">
+            <div class="preview-paper relative">
+                <div class="absolute -top-16 right-0 flex space-x-4 no-print">
+                    <button @click="window.print()" class="bg-blue-600 text-white px-10 py-3 rounded-2xl font-black shadow-2xl">列印/轉存PDF</button>
+                    <button @click="previewType = null" class="bg-white text-slate-800 px-10 py-3 rounded-2xl font-black shadow-2xl">返回</button>
+                </div>
+                <div class="border-b-8 border-slate-900 pb-8 mb-8 flex justify-between items-end">
+                    <div><h1 class="text-5xl font-black italic uppercase">AS COATING</h1><p class="font-black mt-2 text-xl">{{ previewTitle }}</p></div>
+                    <div class="text-right font-bold text-slate-400">查詢月份：{{ currentYear }}/{{ currentMonth + 1 }}<br>列印日期：{{ new Date().toLocaleDateString() }}</div>
+                </div>
+                
+                <!-- 總覽報表 -->
+                <div v-if="previewType === 'dashboard'">
+                    <div class="grid grid-cols-3 gap-4 mb-8">
+                        <div class="border-2 p-4 text-center font-bold">當月總營收<br><span class="text-2xl">${{ stats.totalRevenue.toLocaleString() }}</span></div>
+                        <div class="border-2 p-4 text-center font-bold">當月總支出<br><span class="text-2xl">${{ stats.totalCost.toLocaleString() }}</span></div>
+                        <div class="border-2 p-4 text-center font-bold">估算淨利潤<br><span class="text-2xl text-emerald-600">${{ (stats.totalRevenue - stats.totalCost).toLocaleString() }}</span></div>
+                    </div>
+                    <div class="bg-slate-50 p-6 border-2 rounded-xl">
+                        <h3 class="font-black mb-4 text-lg border-b-2 pb-2">營運深度分析數據</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <p class="font-bold text-blue-700">● 單車平均實收客單：${{ stats.avgTicket.toLocaleString() }}</p>
+                            <p class="font-bold">● 目標達成進度：{{ stats.goalPercent }}%</p>
+                            <p class="font-bold">● 本月總進場車輛：{{ stats.totalCases }} 台</p>
+                            <p class="font-bold text-rose-600">● 未收帳餘額：${{ stats.unpaidAmount.toLocaleString() }}</p>
+                            <p class="font-bold text-slate-500">● 每日應達標業績：${{ Math.round(goal.targetRevenue / goal.workingDays).toLocaleString() }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 工作紀錄/對帳單報表 -->
+                <div v-if="previewType === 'records'">
+                    <p class="text-lg font-bold mb-4" v-if="isReconciling">精準對帳客戶：{{ searchKeyword }}</p>
+                    <table class="w-full border-collapse border-2 text-sm">
+                        <thead><tr class="bg-slate-50 font-bold"><th class="border-2 p-2">日期</th><th class="border-2 p-2">客戶</th><th class="border-2 p-2">車牌</th><th class="border-2 p-2">車種/顏色</th><th class="border-2 p-2">項目與備註</th><th class="border-2 p-2 text-center">狀態</th><th class="border-2 p-2 text-right">金額</th></tr></thead>
+                        <tbody><tr v-for="r in filteredRecords" :key="r.id"><td class="border-2 p-2 text-center">{{ r.date }}</td><td class="border-2 p-2 font-bold">{{ r.customer }}</td><td class="border-2 p-2 text-center uppercase">{{ r.carNumber }}</td><td class="border-2 p-2 text-xs">{{ r.carModel }} / {{ r.carColor }}</td><td class="border-2 p-2 text-xs">{{ r.item }}</td><td class="border-2 p-2 text-center font-bold text-xs" :class="r.isUnpaid ? 'text-rose-500' : 'text-emerald-500'">{{ r.isUnpaid ? '未收' : '已收' }}</td><td class="border-2 p-2 text-right font-black">${{ (r.price || 0).toLocaleString() }}</td></tr></tbody>
+                        <tfoot><tr class="bg-slate-100 font-black"><td colspan="6" class="border-2 p-3 text-right">清單總金額 (含未收)</td><td class="border-2 p-3 text-right text-blue-600 text-lg">${{ filteredTotalSum.toLocaleString() }}</td></tr></tfoot>
+                    </table>
+                </div>
 
-    <div id="message-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border-t-8 border-orange-500">
-            <h3 id="modal-title" class="text-2xl font-black mb-4">提示</h3>
-            <p id="modal-body" class="mb-8 text-slate-600 font-medium"></p>
-            <div id="modal-footer" class="flex gap-4"></div>
+                <!-- 預約調度報表 -->
+                <div v-if="previewType === 'appointments'">
+                    <table class="w-full border-collapse border-2 text-sm">
+                        <thead><tr class="bg-slate-50 font-bold"><th class="border-2 p-2">預約日期</th><th class="border-2 p-2">時間</th><th class="border-2 p-2">客戶名稱</th><th class="border-2 p-2">車型 / 施工備註</th><th class="border-2 p-2 text-center">屬性</th></tr></thead>
+                        <tbody><tr v-for="a in sortedAppointments" :key="a.id"><td class="border-2 p-2 text-center">{{ a.date }}</td><td class="border-2 p-2 text-center font-bold text-blue-600">{{ a.time }}</td><td class="border-2 p-2 font-bold">{{ a.customer }}</td><td class="border-2 p-2 text-xs">{{ a.carModel }} / {{ a.item }}</td><td class="border-2 p-2 text-center text-xs font-bold" :class="a.isPeriodic ? 'text-orange-500' : 'text-slate-500'">{{ a.isPeriodic ? '週期' : '單次' }}</td></tr></tbody>
+                    </table>
+                </div>
+
+                <!-- 固定開支報表 -->
+                <div v-if="previewType === 'expenses'">
+                    <table class="w-full border-collapse border-2 text-sm">
+                        <thead><tr class="bg-slate-50 font-bold"><th class="border-2 p-2 text-center">支出日期</th><th class="border-2 p-2">類別</th><th class="border-2 p-2">詳細備註</th><th class="border-2 p-2 text-right">支出金額</th></tr></thead>
+                        <tbody><tr v-for="e in filteredExpenses" :key="e.id"><td class="border-2 p-2 text-center">{{ e.date }}</td><td class="border-2 p-2 font-bold">{{ e.category }}</td><td class="border-2 p-2 text-xs">{{ e.notes }}</td><td class="border-2 p-2 text-right font-black text-rose-500">${{ (e.amount || 0).toLocaleString() }}</td></tr></tbody>
+                        <tfoot><tr class="bg-slate-100 font-black"><td colspan="3" class="border-2 p-3 text-right">當月累計支出總額</td><td class="border-2 p-3 text-right text-rose-600 text-lg">${{ stats.totalCost.toLocaleString() }}</td></tr></tfoot>
+                    </table>
+                </div>
+
+                <div class="mt-40 flex justify-between px-20"><div class="text-center w-48 border-t-2 border-slate-900 pt-2 font-black text-xs uppercase">管理主管簽核</div><div class="text-center w-48 border-t-2 border-slate-900 pt-2 font-black text-xs uppercase">確認人簽名</div></div>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "",
-            authDomain: "",
-            projectId: "",
-            storageBucket: "",
-            messagingSenderId: "",
-            appId: ""
-        };
-        
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'as-taipei-pro';
-        let app, db, auth;
+        const firebaseConfig = { apiKey: "AIzaSyCByMc_uhpLcRohiXTajQ4jWswiFXIKQLk", authDomain: "as-coating.firebaseapp.com", projectId: "as-coating", storageBucket: "as-coating.firebasestorage.app", messagingSenderId: "916931752670", appId: "1:916931752670:web:c8718876e540559f2b884f" };
+        const fbApp = initializeApp(firebaseConfig);
+        const db = getFirestore(fbApp);
+        const auth = getAuth(fbApp);
+        const appId = "as-coating-pro-final-v6";
 
-        window.currentMode = 'form';
-        window.workOrders = [];
-        window.currentFormData = {};
-        window.currentFilterMonth = new Date().toISOString().slice(0, 7);
+        const { createApp, ref, reactive, computed, onMounted } = Vue;
 
-        const SALES_LIST = ["Audi", "小蔡", "小揚", "其他 / 自訂"];
-        const COMMON_SERVICES = ["全車車漆保護膜", "車頭迎風面保護膜", "內裝保護膜", "大燈保護膜", "玻璃鍍膜", "輪框鍍膜", "深層清潔保養", "已付訂金"];
-
-        const CAR_DATABASE = {
-            "Porsche 保時捷": ["911 GT3 RS", "911 Carrera", "Taycan", "Macan", "Cayenne Coupé", "718 Cayman", "Panamera"],
-            "Ferrari 法拉利": ["296 GTB", "SF90 Stradale", "Roma", "Purosangue", "F8 Tributo", "812 Superfast"],
-            "Lamborghini 藍寶堅尼": ["Urus Performante", "Huracán Sterrato", "Revuelto", "Aventador SVJ"],
-            "McLaren 麥拉倫": ["750S Spider", "Artura", "GT", "720S", "765LT"],
-            "Maserati 瑪莎拉蒂": ["MC20 Cielo", "Grecale", "Levante", "GranTurismo"],
-            "Aston Martin 奧斯頓馬丁": ["DBX 707", "DBS", "Vantage", "DB12"],
-            "Bentley 賓利": ["Continental GT", "Bentayga", "Flying Spur"],
-            "Rolls-Royce 勞斯萊斯": ["Cullinan", "Ghost", "Spectre", "Phantom"],
-            "Tesla 特斯拉": ["Model Y", "Model 3 Highland", "Model X Plaid", "Model S"],
-            "BMW 寶馬": ["M2 (G87)", "M3 Touring", "M4 CSL", "X5", "X7", "i7 M70", "Z4", "i4", "iX"],
-            "Mercedes-Benz 賓士": ["G63 AMG", "S-Class Maybach", "E-Class", "C-Class", "GLE", "SL 63", "EQS", "EQE SUV"],
-            "Audi 奧迪": ["RS6 Avant", "RS e-tron GT", "Q7", "A4", "R8 V10", "Q8 e-tron", "A3 Sportback"],
-            "Lexus 凌志": ["RX500h", "NX200", "LM350h", "ES", "LC500", "IS300h", "LBX"],
-            "Toyota 豐田": ["Alphard", "Vellfire", "Crown Sport", "RAV4", "Supra", "GR Yaris", "Prius PHEV"],
-            "Land Rover 荒原路華": ["Range Rover", "Defender 110", "Defender 90", "Discovery", "Velar"],
-            "Volvo 富豪": ["XC90", "XC60", "XC40 Recharge", "V60", "S90"],
-            "Mazda 馬自達": ["CX-60", "CX-90", "CX-5", "MX-5", "Mazda 3"],
-            "Ford 福特": ["Mustang Mach-E", "Focus", "Ranger", "Kuga"],
-            "Lotus 蓮花": ["Emira", "Eletre"],
-            "其他 / 自訂品牌": []
-        };
-
-        const initializeFirebase = async () => {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+        createApp({
+            setup() {
+                const currentTab = ref('dashboard');
+                const tabs = [ { id: 'dashboard', name: '店面總覽' }, { id: 'records', name: '工作紀錄' }, { id: 'appointments', name: '預約調度' }, { id: 'expenses', name: '固定開支' }, { id: 'settings', name: '目標設定' } ];
+                const records = ref([]); const appointments = ref([]); const expenses = ref([]);
+                const goal = reactive({ targetRevenue: 300000, workingDays: 26 });
+                const currentYear = ref(new Date().getFullYear()); const currentMonth = ref(new Date().getMonth());
+                const previewType = ref(null); const searchKeyword = ref(""); const cheerQuote = ref("細節決定成敗，品質成就非凡。");
                 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
+                const newRecord = reactive({ date: new Date().toISOString().split('T')[0], customer: '', carNumber: '', carModel: '', carColor: '', item: '', price: null, isUnpaid: false });
+                const newAppt = reactive({ date: new Date().toISOString().split('T')[0], time: '10:00', customer: '', carModel: '', item: '', periodicDays: [] });
+                // 固定開支改為精確日期 date
+                const newExpense = reactive({ date: new Date().toISOString().split('T')[0], category: '藥水/耗材', amount: null, notes: '' });
+
+                onMounted(async () => {
                     await signInAnonymously(auth);
-                }
-                
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        document.getElementById('loading').classList.add('hidden');
-                        document.getElementById('nav-bar').classList.remove('hidden');
-                        setupFirestoreListener();
-                        window.setMode('history');
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'records'), (s) => records.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'appointments'), (s) => appointments.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), (s) => expenses.value = s.docs.map(d => ({ id: d.id, ...d.data() })));
+                    const gDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'goal'));
+                    if (gDoc.exists()) Object.assign(goal, gDoc.data());
+                });
+
+                // 核心統計
+                const stats = computed(() => {
+                    const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`;
+                    const curMonthRecords = records.value.filter(r => r.date && r.date.startsWith(monthStr));
+                    const curMonthExpenses = expenses.value.filter(e => e.date && e.date.startsWith(monthStr)); // 開支改用 date
+                    const rev = curMonthRecords.reduce((s, r) => s + (Number(r.price) || 0), 0);
+                    const cost = curMonthExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+                    return { totalRevenue: rev, totalCost: cost, totalCases: curMonthRecords.length, unpaidAmount: curMonthRecords.filter(r => r.isUnpaid).reduce((s, r) => s + (Number(r.price) || 0), 0), gap: Math.max(goal.targetRevenue - rev, 0), goalPercent: Math.min(Math.round((rev / goal.targetRevenue) * 100), 100) || 0, avgTicket: curMonthRecords.length ? Math.round(rev / curMonthRecords.length) : 0 };
+                });
+
+                // 工作紀錄過濾 (精準客戶搜尋)
+                const filteredRecords = computed(() => {
+                    const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`;
+                    let list = records.value;
+                    if (searchKeyword.value) {
+                        const k = searchKeyword.value.trim().toLowerCase();
+                        list = list.filter(r => (r.customer || '').trim().toLowerCase() === k);
+                    } else {
+                        list = list.filter(r => r.date && r.date.startsWith(monthStr));
                     }
+                    return [...list].sort((a,b) => b.date.localeCompare(a.date));
                 });
-            } catch (e) { 
-                console.error(e); 
-                document.getElementById('loading').innerHTML = `<div class="text-red-500 p-10">資料庫連線失敗，請檢查 Firebase 設定。</div>`;
-            }
-        };
 
-        const setupFirestoreListener = () => {
-            const q = collection(db, 'artifacts', appId, 'public', 'data', 'workOrders');
-            onSnapshot(q, (snap) => {
-                window.workOrders = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.id.localeCompare(a.id));
-                if (window.currentMode === 'history') window.renderHistoryMode();
-            }, (err) => console.error("Firestore Error:", err));
-        };
+                const isReconciling = computed(() => searchKeyword.value.trim().length >= 1);
 
-        window.setMode = (mode, data = null, isNew = false) => {
-            window.currentMode = mode;
-            if (isNew) {
-                const today = new Date().toISOString().split('T')[0];
-                window.currentFormData = {
-                    id: `AS-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${(window.workOrders.length+1).toString().padStart(3,'0')}`,
-                    receiveDate: today, deliveryDate: today,
-                    customerName: '', customerPhone: '', licensePlate: '',
-                    carBrand: 'Porsche 保時捷', carModel: '911 GT3 RS', salesPerson: SALES_LIST[0],
-                    paymentMethod: '現金', needsInvoice: false,
-                    serviceItems: [{ name: '全車車漆保護膜', price: 0 }],
-                    notes: '', isSigned: false, signatureImage: null,
-                    customSales: '', customBrand: '', customModel: ''
+                // 固定開支過濾 (依據 date)
+                const filteredExpenses = computed(() => {
+                    const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`;
+                    return expenses.value.filter(e => e.date && e.date.startsWith(monthStr)).sort((a,b) => b.date.localeCompare(a.date));
+                });
+
+                // 預約清單過濾
+                const sortedAppointments = computed(() => {
+                    const monthStr = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}`;
+                    return appointments.value.filter(a => a.date && a.date.startsWith(monthStr) || a.isPeriodic).sort((a,b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+                });
+
+                const calendarDays = computed(() => {
+                    const days = [];
+                    const firstDayDate = new Date(currentYear.value, currentMonth.value, 1);
+                    const firstDayOfWeek = firstDayDate.getDay(); 
+                    const prevMonthLastDay = new Date(currentYear.value, currentMonth.value, 0).getDate();
+                    for (let i = firstDayOfWeek - 1; i >= 0; i--) { 
+                        days.push({ day: prevMonthLastDay - i, date: '', isCurrentMonth: false, appts: [] }); 
+                    }
+                    const lastDayDate = new Date(currentYear.value, currentMonth.value + 1, 0);
+                    
+                    // 修正：計算本地今日日期，避免時區偏移
+                    const d = new Date();
+                    const localToday = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+                    for (let i = 1; i <= lastDayDate.getDate(); i++) {
+                        // 修正：強制使用字串拼接 YYYY-MM-DD，絕對避免轉換為格林威治時間造成的退後一天
+                        const ds = `${currentYear.value}-${String(currentMonth.value + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                        const dow = new Date(currentYear.value, currentMonth.value, i).getDay();
+                        
+                        // 修正：精確判斷單次預約與週期性預約
+                        const dayAppts = appointments.value.filter(a => (a.date === ds && !a.isPeriodic) || (a.isPeriodic && (a.periodicDays || []).includes(dow)));
+                        days.push({ day: i, date: ds, isCurrentMonth: true, isToday: ds === localToday, appts: dayAppts });
+                    }
+                    return days;
+                });
+
+                const addRecord = async () => { if (!newRecord.customer || !newRecord.price) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'records'), { ...newRecord }); Object.assign(newRecord, { customer: '', carNumber: '', carModel: '', carColor: '', item: '', price: null, isUnpaid: false }); };
+                const updateRecord = async (r) => { if(r.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r }); };
+                const addAppointment = async () => { if (!newAppt.customer) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'appointments'), { ...newAppt, isPeriodic: newAppt.periodicDays.length > 0 }); Object.assign(newAppt, { customer: '', carModel: '', item: '', periodicDays: [] }); };
+                const updateAppt = async (a) => { if(a.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'appointments', a.id), { ...a, isPeriodic: (a.periodicDays || []).length > 0 }); };
+                const toggleApptDay = async (a, day) => { const days = a.periodicDays || []; const newDays = days.includes(day) ? days.filter(d => d !== day) : [...days, day]; await updateAppt({ ...a, periodicDays: newDays }); };
+                const addExpense = async () => { if (!newExpense.amount) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { ...newExpense }); newExpense.amount = null; newExpense.notes = ''; };
+                const updateExpense = async (e) => { if(e.id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', e.id), { ...e }); };
+                
+                // 修正：移除 iframe 會卡死的 confirm 阻擋，保證直接刪除生效
+                const deleteItem = async (col, id) => {
+                    if(!id) return;
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id));
+                    } catch(err) {
+                        console.error("刪除操作失敗", err);
+                    }
                 };
-            } else if (data) {
-                window.currentFormData = data;
-            }
-            ['history', 'form', 'quote'].forEach(m => document.getElementById(`mode-${m}`).classList.add('hidden'));
-            if (mode === 'history') window.renderHistoryMode();
-            else if (mode === 'form') window.renderFormMode();
-            else if (mode === 'quote') window.renderQuoteMode();
-            document.getElementById(`mode-${mode}`).classList.remove('hidden');
-            window.scrollTo(0,0);
-        };
 
-        window.renderHistoryMode = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth));
-            const totalCount = filtered.length;
-            const totalRevenue = filtered.reduce((sum, o) => {
-                const sub = o.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-                const tax = (o.needsInvoice || o.paymentMethod === '信用卡') ? Math.round(sub * 0.05) : 0;
-                return sum + sub + tax;
-            }, 0);
-
-            document.getElementById('mode-history').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print">
-                    <div class="bg-white p-6 rounded-3xl border shadow-sm">
-                        <p class="text-xs font-bold text-slate-400 uppercase mb-1 tracking-widest">選擇查詢月份</p>
-                        <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="w-full p-3 border-2 rounded-xl font-bold">
-                    </div>
-                    <div class="bg-slate-900 p-6 rounded-3xl shadow-xl text-white">
-                        <p class="text-xs font-bold text-slate-400 uppercase mb-1 tracking-widest">案件量</p>
-                        <p class="text-4xl font-black text-orange-500">${totalCount} <span class="text-sm">件</span></p>
-                    </div>
-                    <div class="bg-orange-500 p-6 rounded-3xl shadow-xl text-white">
-                        <p class="text-xs font-bold text-white/70 uppercase mb-1 tracking-widest">總營收 (含稅)</p>
-                        <p class="text-4xl font-black">NT$ ${totalRevenue.toLocaleString()}</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-3xl border shadow-sm flex flex-col justify-center items-center gap-2">
-                        <button onclick="window.exportExcel()" class="w-full bg-green-600 text-white py-3 rounded-xl font-black shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2">
-                            <span>📥 匯出本月 Excel</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="bg-white rounded-3xl border shadow-sm overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 border-b">
-                            <tr>
-                                <th class="p-5 text-xs font-bold text-slate-400">單號 / 日期</th>
-                                <th class="p-5 text-xs font-bold text-slate-400">客戶 / 車輛</th>
-                                <th class="p-5 text-xs font-bold text-slate-400">明細 / 總額</th>
-                                <th class="p-5 text-right text-xs font-bold text-slate-400">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            ${filtered.map(o => {
-                                const sub = o.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-                                const tax = (o.needsInvoice || o.paymentMethod === '信用卡') ? Math.round(sub * 0.05) : 0;
-                                return `
-                                <tr class="hover:bg-slate-50">
-                                    <td class="p-5 align-top">
-                                        <span class="font-black text-orange-600">${o.id}</span><br>
-                                        <span class="text-xs text-slate-400">${o.receiveDate}</span>
-                                    </td>
-                                    <td class="p-5 align-top">
-                                        <span class="font-black text-slate-800">${o.customerName || '未留名'}</span> 
-                                        <span class="text-xs font-bold text-slate-500">(${o.customerPhone || ''})</span><br>
-                                        <span class="font-bold text-slate-700 uppercase">${o.licensePlate}</span><br>
-                                        <span class="text-xs text-slate-400">${o.carBrand === '其他 / 自訂品牌' ? o.customBrand : o.carBrand} ${o.carModel === '其他自選車款' ? o.customModel : o.carModel}</span>
-                                    </td>
-                                    <td class="p-5 align-top">
-                                        <div class="text-[11px] text-slate-500 leading-tight">
-                                            ${o.serviceItems.map(it => `<div>• ${it.name} <span class="font-mono">($${it.price.toLocaleString()})</span></div>`).join('')}
-                                            ${tax > 0 ? `<div class="text-orange-500 font-bold">• 稅額/手續費 ($${tax.toLocaleString()})</div>` : ''}
-                                        </div>
-                                        <div class="font-black text-slate-900 mt-1">NT$ ${(sub+tax).toLocaleString()} <span class="text-[10px] font-normal text-slate-400">(${o.paymentMethod})</span></div>
-                                    </td>
-                                    <td class="p-5 text-right align-top">
-                                        <div class="flex justify-end gap-2">
-                                            <button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 text-white text-xs font-black py-2 px-6 rounded-xl">查看</button>
-                                            <button onclick="window.deleteOrder('${o.id}')" class="text-red-500 p-2 font-black text-sm hover:text-red-700 transition-colors">✕</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        };
-
-        window.deleteOrder = async (id) => {
-            if (confirm(`確定要刪除單號 ${id} 嗎？`)) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', id));
-                    window.showMessageModal("已刪除", "工單紀錄已從雲端移除。");
-                } catch (e) { 
-                    console.error(e);
-                    window.showMessageModal("錯誤", "刪除失敗，請檢查網路連線。"); 
-                }
-            }
-        };
-
-        window.exportExcel = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth));
-            const data = filtered.map(o => {
-                const sub = o.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-                const tax = (o.needsInvoice || o.paymentMethod === '信用卡') ? Math.round(sub * 0.05) : 0;
-                return {
-                    "工單編號": o.id, "日期": o.receiveDate, "客戶姓名": o.customerName, "電話": o.customerPhone, "車牌": o.licensePlate,
-                    "車型": (o.carBrand === '其他 / 自訂品牌' ? o.customBrand : o.carBrand) + " " + (o.carModel === '其他自選車款' ? o.customModel : o.carModel),
-                    "支付方式": o.paymentMethod, "小計": sub, "稅金/手續費": tax, "總金額": sub + tax, "備註": o.notes
+                // 修正：強化拖放邏輯與樣式連結
+                let draggingAppt = null;
+                const onDragStart = (e, appt) => { 
+                    draggingAppt = appt; 
+                    e.dataTransfer.effectAllowed = "move"; 
+                    e.dataTransfer.setData('text/plain', appt.id);
                 };
-            });
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "工單報表");
-            XLSX.writeFile(wb, `AS_TAIPEI_${window.currentFilterMonth}.xlsx`);
-        };
+                const dragOver = (e) => { e.currentTarget.classList.add('drag-over-active'); };
+                const dragLeave = (e) => { e.currentTarget.classList.remove('drag-over-active'); };
+                const onDrop = async (e, date) => {
+                    e.currentTarget.classList.remove('drag-over-active');
+                    if (draggingAppt && date) {
+                        // 確保週期性預約不能被拖放改變日期
+                        if (!draggingAppt.isPeriodic) {
+                            draggingAppt.date = date;
+                            await updateAppt(draggingAppt);
+                        }
+                        draggingAppt = null;
+                    }
+                };
 
-        window.renderFormMode = () => {
-            const container = document.getElementById('mode-form');
-            container.innerHTML = `
-                <div class="bg-white p-8 rounded-3xl border shadow-xl space-y-8 no-print">
-                    <div class="flex items-center gap-4 border-b pb-6"><h2 class="text-3xl font-black">填寫服務工單</h2></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">客戶姓名</label><input type="text" id="f-customerName" value="${window.currentFormData.customerName}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">聯絡電話</label><input type="tel" id="f-customerPhone" value="${window.currentFormData.customerPhone||''}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">車牌號碼</label><input type="text" id="f-licensePlate" value="${window.currentFormData.licensePlate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-black uppercase"></div>
-                        <div class="space-y-1">
-                            <label class="text-[10px] font-black text-slate-400">結帳方式</label>
-                            <select id="f-paymentMethod" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold">
-                                ${["現金", "信用卡", "匯款"].map(p => `<option value="${p}" ${window.currentFormData.paymentMethod===p?'selected':''}>${p}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">汽車品牌</label>
-                            <select id="f-carBrand" onchange="window.onBrandChange(this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold">
-                                ${Object.keys(CAR_DATABASE).map(b => `<option value="${b}" ${window.currentFormData.carBrand===b?'selected':''}>${b}</option>`).join('')}
-                            </select>
-                            <input type="text" id="f-customBrand" placeholder="輸入品牌" class="hidden mt-2 w-full p-4 bg-orange-50 border-orange-200 border rounded-2xl font-bold" value="${window.currentFormData.customBrand||''}">
-                        </div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">型號</label>
-                            <select id="f-carModel" onchange="window.onModelChange(this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></select>
-                            <input type="text" id="f-customModel" placeholder="輸入型號" class="hidden mt-2 w-full p-4 bg-orange-50 border-orange-200 border rounded-2xl font-bold" value="${window.currentFormData.customModel||''}">
-                        </div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400">負責業務</label>
-                            <select id="f-salesPerson" onchange="window.onSalesChange(this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold">
-                                ${SALES_LIST.map(s => `<option value="${s}" ${window.currentFormData.salesPerson===s?'selected':''}>${s}</option>`).join('')}
-                            </select>
-                            <input type="text" id="f-customSales" placeholder="輸入業務姓名" class="hidden mt-2 w-full p-4 bg-orange-50 border-orange-200 border rounded-2xl font-bold" value="${window.currentFormData.customSales||''}">
-                        </div>
-                        <div class="flex items-center pt-6">
-                            <label class="flex items-center gap-3 cursor-pointer">
-                                <input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 accent-orange-500">
-                                <span class="font-bold text-slate-700">需開發票 (+5%)</span>
-                            </label>
-                        </div>
-                    </div>
+                const saveGoal = async () => { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'goal'), { ...goal }); currentTab.value = 'dashboard'; };
+                const changeMonth = (v) => { currentMonth.value += v; if (currentMonth.value > 11) { currentMonth.value = 0; currentYear.value++; } else if (currentMonth.value < 0) { currentMonth.value = 11; currentYear.value--; } };
 
-                    <div class="bg-slate-50 p-6 rounded-3xl border">
-                        <h3 class="font-black mb-4">項目明細</h3>
-                        <div id="items-container" class="space-y-3"></div>
-                        <button type="button" onclick="window.addItem()" class="mt-4 w-full py-4 border-2 border-dashed rounded-2xl text-slate-400 font-bold">+ 新增項目</button>
-                    </div>
-
-                    <!-- 備註欄位 -->
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-black text-slate-400 uppercase">內部備註 / 特殊事項</label>
-                        <textarea id="f-notes" rows="3" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold placeholder:text-slate-300" placeholder="記錄車輛瑕疵、客戶特殊要求或施工細節...">${window.currentFormData.notes || ''}</textarea>
-                    </div>
-
-                    <button id="btn-next" class="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-2xl shadow-2xl">確認內容並預覽</button>
-                </div>
-            `;
-            window.fillModels(window.currentFormData.carBrand);
-            window.renderItems();
-            
-            window.onBrandChange(window.currentFormData.carBrand, false);
-            window.onModelChange(window.currentFormData.carModel, false);
-            window.onSalesChange(window.currentFormData.salesPerson, false);
-
-            document.getElementById('btn-next').onclick = () => {
-                Object.assign(window.currentFormData, {
-                    customerName: document.getElementById('f-customerName').value,
-                    customerPhone: document.getElementById('f-customerPhone').value,
-                    licensePlate: document.getElementById('f-licensePlate').value.toUpperCase(),
-                    paymentMethod: document.getElementById('f-paymentMethod').value,
-                    needsInvoice: document.getElementById('f-needsInvoice').checked,
-                    carBrand: document.getElementById('f-carBrand').value,
-                    customBrand: document.getElementById('f-customBrand').value,
-                    carModel: document.getElementById('f-carModel').value,
-                    customModel: document.getElementById('f-customModel').value,
-                    salesPerson: document.getElementById('f-salesPerson').value,
-                    customSales: document.getElementById('f-customSales').value,
-                    notes: document.getElementById('f-notes').value
-                });
-                window.setMode('quote');
-            };
-        };
-
-        window.onBrandChange = (b, updateModel = true) => {
-            const input = document.getElementById('f-customBrand');
-            if(input) {
-                if(b === '其他 / 自訂品牌') input.classList.remove('hidden');
-                else input.classList.add('hidden');
+                return { 
+                    currentTab, tabs, stats, filteredRecords, filteredExpenses, 
+                    filteredTotalSum: computed(() => filteredRecords.value.reduce((s,r) => s + (Number(r.price) || 0), 0)), 
+                    filteredTotalUnpaid: computed(() => filteredRecords.value.filter(r => r.isUnpaid).reduce((s,r) => s + (Number(r.price) || 0), 0)), 
+                    calendarDays, sortedAppointments, currentYear, currentMonth, newRecord, newAppt, newExpense, previewType, searchKeyword, goal, cheerQuote, isReconciling,
+                    previewTitle: computed(() => ({ records: '客戶對帳與工作明細表', appointments: '預約排程調度明細表', expenses: '固定支出結算分析表', dashboard: '營運成果總覽報告' }[previewType.value])), 
+                    addRecord, updateRecord, addAppointment, updateAppt, toggleApptDay, addExpense, updateExpense, deleteItem, 
+                    onDragStart, dragOver, dragLeave, onDrop,
+                    saveGoal, changeMonth, showPreview: (t) => previewType.value = t, jumpToUnpaid: () => { currentTab.value = 'records'; searchKeyword.value = ''; }, window 
+                };
             }
-            if(updateModel) window.fillModels(b);
-        };
-        window.onModelChange = (m) => {
-            const input = document.getElementById('f-customModel');
-            if(input) {
-                if(m === '其他自選車款') input.classList.remove('hidden');
-                else input.classList.add('hidden');
-            }
-        };
-        window.onSalesChange = (s) => {
-            const input = document.getElementById('f-customSales');
-            if(input) {
-                if(s === '其他 / 自訂') input.classList.remove('hidden');
-                else input.classList.add('hidden');
-            }
-        };
-
-        window.fillModels = (b) => {
-            const sel = document.getElementById('f-carModel'); if(!sel) return;
-            const models = CAR_DATABASE[b] || [];
-            sel.innerHTML = models.map(m => `<option value="${m}" ${window.currentFormData.carModel===m?'selected':''}>${m}</option>`).join('') + `<option value="其他自選車款" ${window.currentFormData.carModel==='其他自選車款'?'selected':''}>其他自選車款</option>`;
-            window.onModelChange(sel.value);
-        };
-
-        window.renderItems = () => {
-            document.getElementById('items-container').innerHTML = window.currentFormData.serviceItems.map((it, i) => `
-                <div class="flex flex-col md:flex-row gap-3 bg-white p-3 rounded-xl border">
-                    <div class="flex-grow flex gap-2">
-                        <select onchange="window.selectCommon(${i}, this.value)" class="p-3 bg-slate-50 border rounded-xl font-bold text-xs">
-                            <option value="">快速選擇</option>
-                            ${COMMON_SERVICES.map(s => `<option value="${s}">${s}</option>`).join('')}
-                        </select>
-                        <input type="text" value="${it.name}" oninput="window.updItem(${i}, 'name', this.value)" placeholder="或自行輸入服務名稱" class="flex-grow p-3 bg-slate-50 border rounded-xl font-bold">
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="number" value="${it.price}" oninput="window.updItem(${i}, 'price', this.value)" class="w-32 p-3 bg-slate-50 border rounded-xl font-black text-right">
-                        <button type="button" onclick="window.removeItem(${i})" class="text-slate-300 font-bold px-2">✕</button>
-                    </div>
-                </div>
-            `).join('');
-        };
-
-        window.selectCommon = (i, val) => { if(!val) return; window.currentFormData.serviceItems[i].name = val; window.renderItems(); };
-        window.updItem = (i, k, v) => { window.currentFormData.serviceItems[i][k] = (k==='price' ? parseInt(v)||0 : v); };
-        window.addItem = () => { window.currentFormData.serviceItems.push({name:'', price:0}); window.renderItems(); };
-        window.removeItem = (i) => { window.currentFormData.serviceItems.splice(i,1); window.renderItems(); };
-
-        window.renderQuoteMode = () => {
-            const container = document.getElementById('mode-quote');
-            const subtotal = window.currentFormData.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-            const isTaxRequired = (window.currentFormData.needsInvoice || window.currentFormData.paymentMethod === '信用卡');
-            const extraCharge = isTaxRequired ? Math.round(subtotal * 0.05) : 0;
-            const total = subtotal + extraCharge;
-
-            const displayBrand = window.currentFormData.carBrand === '其他 / 自訂品牌' ? window.currentFormData.customBrand : window.currentFormData.carBrand;
-            const displayModel = window.currentFormData.carModel === '其他自選車款' ? window.currentFormData.customModel : window.currentFormData.carModel;
-            const displaySales = window.currentFormData.salesPerson === '其他 / 自訂' ? window.currentFormData.customSales : window.currentFormData.salesPerson;
-
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div class="lg:col-span-3 bg-white p-8 md:p-12 rounded-3xl shadow-2xl border-t-[12px] border-orange-500">
-                        <div class="flex justify-between items-start border-b-2 border-slate-100 pb-6 mb-8">
-                            <div><h1 class="text-4xl font-black tracking-tighter text-slate-950">AS TAIPEI</h1><p class="text-xs font-bold text-slate-400 mt-1 tracking-widest italic">頂級車漆保護膜與專業美容中心</p></div>
-                            <div class="text-right"><p class="text-[10px] font-black text-slate-400 uppercase">服務單號</p><p class="text-xl font-black font-mono text-orange-600">${window.currentFormData.id}</p></div>
-                        </div>
-
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4 mb-10 text-sm p-6 bg-slate-50 rounded-2xl border">
-                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">客戶/電話</p><p class="font-black">${window.currentFormData.customerName || '未留名'}<br>${window.currentFormData.customerPhone||''}</p></div>
-                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">車牌</p><p class="font-black text-lg uppercase">${window.currentFormData.licensePlate}</p></div>
-                            <div class="space-y-1 col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase">車輛資訊</p><p class="font-black">${displayBrand} ${displayModel}</p></div>
-                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">進場日期</p><p class="font-bold">${window.currentFormData.receiveDate}</p></div>
-                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">預計交車</p><p class="font-bold">${window.currentFormData.deliveryDate}</p></div>
-                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">支付方式</p><p class="font-bold">${window.currentFormData.paymentMethod}</p></div>
-                            <div class="space-y-1"><p class="text-[10px] font-black text-slate-400 uppercase">服務顧問</p><p class="font-black border-b border-black inline-block">${displaySales}</p></div>
-                        </div>
-
-                        <table class="w-full mb-10 text-sm overflow-hidden rounded-xl border">
-                            <thead class="bg-slate-900 text-white"><tr class="text-left"><th class="p-4">服務項目</th><th class="p-4 text-right">金額 (TWD)</th></tr></thead>
-                            <tbody class="divide-y">
-                                ${window.currentFormData.serviceItems.map(item => `<tr><td class="p-4 font-bold">${item.name}</td><td class="p-4 text-right font-black">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
-                                ${extraCharge > 0 ? `<tr class="bg-orange-50/50"><td class="p-4 font-bold italic">稅金/手續費 (5%)</td><td class="p-4 text-right font-black">NT$ ${extraCharge.toLocaleString()}</td></tr>` : ''}
-                            </tbody>
-                            <tfoot class="bg-slate-950 text-white"><tr><td class="p-4 text-right font-bold text-lg">本單總計</td><td class="p-4 text-right font-black text-3xl text-orange-500">NT$ ${total.toLocaleString()}</td></tr></tfoot>
-                        </table>
-
-                        ${window.currentFormData.notes ? `
-                        <div class="mb-10 p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                            <p class="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">備註事項</p>
-                            <p class="text-sm font-bold text-slate-700 whitespace-pre-wrap">${window.currentFormData.notes}</p>
-                        </div>
-                        ` : ''}
-
-                        <div class="space-y-10">
-                            <div class="info-section">
-                                <h3 class="info-title">⚠️ 施工品質驗收標準</h3>
-                                <p class="info-text">
-                                    車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。<br>
-                                    <span class="info-text-bold">微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</span><br>
-                                    在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業驗收標準。
-                                </p>
-                            </div>
-
-                            <div class="info-section">
-                                <h3 class="info-title">🛡️ 保護膜養護須知</h3>
-                                <div class="space-y-2 info-text">
-                                    <p><span class="info-text-bold">1. 48小時嚴禁洗車：</span>施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</p>
-                                    <p><span class="info-text-bold">2. 洗車務必擦乾：</span>洗車後請確實將水分擦乾，防止水垢產生。嚴禁高壓水槍近距離直噴膜面邊緣。</p>
-                                    <p><span class="info-text-bold">3. 初期霧感現象：</span>安裝後若有微霧感屬水分蒸發正常過程，視天候約 10 天後恢復高亮。</p>
-                                    <p><span class="info-text-bold">4. 專業保養建議：</span>建議每 3-6 個月回廠養護，可延長膜料壽命與撥水效果。</p>
-                                </div>
-                            </div>
-
-                            <div class="info-section-dim">
-                                <h3 class="info-title-dim">🚫 不在保固服務範圍之事項</h3>
-                                <div class="space-y-1 info-text-dim">
-                                    <p>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</p>
-                                    <p>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</p>
-                                    <p>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</p>
-                                    <p>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</p>
-                                    <p>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</p>
-                                    <p>6. 未經授權之加工：非本公司授權之第三方加工或撕除膜料者。</p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mt-10 pt-8 border-t-4 border-slate-900">
-                                <div><p class="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">AS TAIPEI 簽章</p><div class="border-b-2 border-black w-48 font-black text-2xl italic pb-2">${displaySales}</div></div>
-                                <div class="space-y-4">
-                                    <p class="text-xs font-black uppercase flex items-center gap-2"><span>🖊️</span> 客戶簽署</p>
-                                    <div class="h-32 relative bg-slate-100 rounded-2xl border-2 border-slate-300">
-                                        ${window.currentFormData.isSigned ? `<img src="${window.currentFormData.signatureImage}" class="max-h-full mx-auto">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
-                                    </div>
-                                    <div class="flex gap-2 no-print">
-                                        ${!window.currentFormData.isSigned ? `<button onclick="window.saveSig()" class="flex-grow bg-orange-600 text-white py-3 rounded-xl font-black text-sm">確認簽署</button>` : ''}
-                                        <button onclick="window.clearSig()" class="bg-slate-200 text-slate-600 px-4 py-3 rounded-xl font-bold text-sm">重設</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="no-print space-y-4">
-                        <button onclick="window.saveToFirebase()" class="w-full bg-orange-500 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-orange-600">✅ 儲存工單紀錄</button>
-                        <button onclick="window.print()" class="w-full bg-slate-950 text-white py-5 rounded-2xl font-black text-xl">🖨️ 列印單據</button>
-                        <button onclick="window.setMode('form')" class="w-full text-slate-400 font-bold underline py-2">⬅️ 返回修改內容</button>
-                    </div>
-                </div>
-            `;
-            if(!window.currentFormData.isSigned) setTimeout(initSig, 100);
-        };
-
-        let sigC, sigX, drawing = false;
-        const initSig = () => {
-            sigC = document.getElementById('sig-canvas'); if(!sigC) return;
-            sigX = sigC.getContext('2d');
-            sigC.width = sigC.offsetWidth; sigC.height = sigC.offsetHeight;
-            sigX.strokeStyle = "#000"; sigX.lineWidth = 3; sigX.lineCap = "round";
-            const getP = (e) => { const r = sigC.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
-            const s = (e) => { drawing=true; const p=getP(e); sigX.beginPath(); sigX.moveTo(p.x, p.y); };
-            const m = (e) => { if(!drawing) return; const p=getP(e); sigX.lineTo(p.x, p.y); sigX.stroke(); };
-            sigC.addEventListener('mousedown', s); sigC.addEventListener('mousemove', m); window.addEventListener('mouseup', ()=>drawing=false);
-            sigC.addEventListener('touchstart', (e)=>{e.preventDefault(); s(e);}, {passive:false}); 
-            sigC.addEventListener('touchmove', (e)=>{e.preventDefault(); m(e);}, {passive:false});
-        };
-        
-        window.saveSig = () => { const c = document.getElementById('sig-canvas'); window.currentFormData.signatureImage = c.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
-        window.clearSig = () => { window.currentFormData.isSigned = false; window.currentFormData.signatureImage = null; window.renderQuoteMode(); };
-
-        window.saveToFirebase = async () => {
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', window.currentFormData.id), { 
-                    ...window.currentFormData, 
-                    updatedAt: serverTimestamp() 
-                });
-                window.showMessageModal("儲存成功", "工單已成功儲存並同步至雲端。");
-                window.setMode('history');
-            } catch(e) { 
-                console.error(e);
-                window.showMessageModal("儲存失敗", "請檢查網路連線。"); 
-            }
-        };
-
-        window.closeMessageModal = () => document.getElementById('message-modal').classList.add('hidden');
-        window.showMessageModal = (t, b) => {
-            document.getElementById('modal-title').textContent = t; document.getElementById('modal-body').textContent = b;
-            document.getElementById('modal-footer').innerHTML = `<button onclick="closeMessageModal()" class="flex-grow bg-slate-900 text-white p-4 rounded-xl font-bold">確認</button>`;
-            document.getElementById('message-modal').classList.remove('hidden');
-        };
-
-        initializeFirebase();
+        }).mount('#app');
     </script>
 </body>
 </html>
