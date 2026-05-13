@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AS TAIPEI 雲端美研系統 v11.6</title>
+    <title>AS TAIPEI 雲端美研系統 v11.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -20,20 +20,29 @@
         }
 
         .print-only { display: none; }
+        
         @media print {
-            @page { size: A4; margin: 10mm; }
+            @page { size: A4 portrait; margin: 10mm; }
+            body { background-color: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .no-print { display: none !important; }
             .print-only { display: block; }
+            
+            /* Force desktop layout rules for print to fix mobile printing issues */
+            .print-header { flex-direction: row !important; align-items: center !important; }
+            .print-footer { flex-direction: row !important; align-items: flex-end !important; }
+            .grid-cols-3 { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            
             .print-container { 
                 width: 100% !important; 
-                max-width: 100% !important; 
+                max-width: 190mm !important; /* Fits nicely inside A4 width */
                 padding: 0 !important; 
-                margin: 0 !important; 
+                margin: 0 auto !important; 
                 border: none !important; 
                 box-shadow: none !important;
                 background-color: white !important;
+                page-break-inside: avoid;
             }
-            body { background-color: white !important; }
+            
             .print-report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             .print-report-table th, .print-report-table td { border: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; line-height: 1.4; }
             .print-report-table th { background-color: #f8fafc !important; color: #0f172a !important; -webkit-print-color-adjust: exact; }
@@ -85,9 +94,10 @@
 
         const SALES_LIST = ["Audi", "小蔡", "小楊", "其他"];
 
+        // Modified: Confirmed Service Templates contain "前置鍍膜方案一", "前置鍍膜方案二"
         const SERVICE_TEMPLATES = [
             "全車頂級車漆保護膜 (PPF)", "全車改色膜施工", "車頭局部防護方案", "迎風面保護膜",
-            "內裝專屬保護膜", "雙層陶瓷深層鍍膜", "全車基礎美容增艷", "精緻手作洗車保養",
+            "內裝專屬保護膜", "雙層陶瓷深層鍍膜", "前置鍍膜方案一", "前置鍍膜方案二", "全車基礎美容增艷", "精緻手作洗車保養",
             "玻璃奈米撥水塗層", "輪框專屬保護層", "皮椅深層清潔養護", "其他"
         ];
 
@@ -147,7 +157,10 @@
             setTimeout(() => el.classList.add('hidden'), 3000);
         };
 
-        window.handlePrint = () => { window.focus(); setTimeout(() => { window.print(); }, 500); };
+        // Fixed: Removed setTimeout to ensure native print dialog works reliably on mobile/tablet devices
+        window.handlePrint = () => { 
+            window.print(); 
+        };
 
         window.setMode = (mode, data = null, isNew = false) => {
             window.currentMode = mode;
@@ -160,7 +173,7 @@
                     carBrand: 'Audi 奧迪', carBrandCustom: '', carModel: 'RS6/RS7', carModelCustom: '',
                     salesPerson: 'Audi', salesPersonCustom: '', paymentMethod: '現金', needsInvoice: false,
                     serviceItems: [{ name: '全車頂級車漆保護膜 (PPF)', nameCustom: '', price: 0 }],
-                    notes: '', isSigned: false, signatureImage: null
+                    notes: '', isSigned: false, signatureImage: null // Notes is initialized correctly
                 };
             } else if (data) { window.currentFormData = JSON.parse(JSON.stringify(data)); }
             ['history', 'form', 'quote', 'printPreview'].forEach(m => {
@@ -185,8 +198,8 @@
                     <div class="flex items-center gap-3"><div class="bg-orange-500 text-white p-2 rounded-xl">📊</div><div><p class="text-orange-950 font-black text-lg">月度營收報表預覽</p><p class="text-xs text-orange-700 font-bold">當月共有 ${filtered.length} 筆案件記錄</p></div></div>
                     <div class="flex gap-3 w-full md:w-auto"><button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white border-2 border-slate-200 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-50">返回</button><button onclick="window.handlePrint()" class="flex-1 md:flex-none bg-orange-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-700">立即列印</button></div>
                 </div>
-                <div class="print-container bg-white p-8 md:p-12 shadow-2xl border mx-auto mb-10" style="width: 100%; max-width: 210mm;">
-                    <div class="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8">
+                <div class="print-container bg-white p-8 md:p-12 shadow-2xl border mx-auto mb-10">
+                    <div class="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8 print-header">
                         <div><h1 class="text-3xl font-black tracking-tighter text-slate-950 mb-1">AS TAIPEI 月度營收明細表</h1><p class="text-slate-500 font-bold text-xs uppercase tracking-widest">Premium Paint Protection Management System</p></div>
                         <div class="text-right"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">報表月份</p><p class="text-2xl font-black text-slate-900 leading-none">${window.currentFilterMonth}</p><p class="text-[9px] text-slate-400 mt-2 font-medium">製表日期：${new Date().toLocaleDateString()}</p></div>
                     </div>
@@ -194,7 +207,7 @@
                         <thead><tr><th style="width: 12%">單號</th><th style="width: 12%">日期</th><th style="width: 18%">客戶資訊</th><th style="width: 18%">車輛資訊</th><th style="width: 28%">施工項目明細</th><th style="width: 12%; text-align: right;">總計(含稅)</th></tr></thead>
                         <tbody>${filtered.map(o => {
                             const itemsText = o.serviceItems.map(it => `• ${it.name === '其他' ? it.nameCustom : it.name}`).join('<br>');
-                            return `<tr><td class="font-bold">${o.id}</td><td>${o.receiveDate}</td><td class="font-bold">${o.customerName}<br><span class="text-[9px] font-normal text-slate-500">${o.customerPhone}</span></td><td class="font-black">${o.licensePlate}<br><span class="text-[9px] font-normal text-slate-500">${o.carBrand}</span></td><td class="text-[10px]">${itemsText}</td><td class="text-right font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td></tr>`
+                            return `<tr><td class="font-bold text-[9px] md:text-xs">${o.id}</td><td>${o.receiveDate}</td><td class="font-bold">${o.customerName}<br><span class="text-[9px] font-normal text-slate-500">${o.customerPhone}</span></td><td class="font-black">${o.licensePlate}<br><span class="text-[9px] font-normal text-slate-500">${o.carBrand}</span></td><td class="text-[10px]">${itemsText}</td><td class="text-right font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td></tr>`
                         }).join('')}</tbody>
                         <tfoot><tr style="background-color: #f8fafc;"><td colspan="5" style="text-align: right; font-weight: 900; font-size: 13px; padding: 15px;">本月合計營收額</td><td style="text-align: right; font-weight: 900; font-size: 16px; color: #ea580c; padding: 15px;">NT$ ${monthlyRevenue.toLocaleString()}</td></tr></tfoot>
                     </table>
@@ -219,7 +232,7 @@
                     <div class="lg:col-span-3 bg-white p-6 md:p-12 rounded-[3rem] shadow-2xl border-t-[16px] border-orange-500 print-container relative overflow-hidden">
                         <div class="quote-watermark">AS TAIPEI</div>
                         
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-slate-100 pb-8 mb-10 gap-6 relative z-10">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-slate-100 pb-8 mb-10 gap-6 relative z-10 print-header">
                             <div>
                                 <h1 class="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter">AS TAIPEI</h1>
                                 <p class="text-[11px] font-black text-orange-600 mt-2 uppercase tracking-[0.2em]">Premium Paint Protection Film Specialist</p>
@@ -262,6 +275,13 @@
                                 <p class="font-black text-lg text-slate-800">${d.paymentMethod} <span class="text-[10px] font-bold text-slate-400">${hasTax?'(含稅 5%)':''}</span></p>
                             </div>
                         </div>
+
+                        ${d.notes && d.notes.trim() !== '' ? `
+                        <div class="mb-10 p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10">
+                            <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項</p>
+                            <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.notes}</p>
+                        </div>
+                        ` : ''}
 
                         <div class="overflow-hidden rounded-[2rem] border-2 border-slate-100 mb-10 shadow-sm relative z-10">
                             <table class="w-full">
@@ -323,7 +343,7 @@
                             </div>
                         </div>
 
-                        <div class="mt-16 pt-10 border-t-2 border-slate-950 border-opacity-5 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
+                        <div class="mt-16 pt-10 border-t-2 border-slate-950 border-opacity-5 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10 print-footer">
                              <div class="flex flex-col items-center">
                                  <div class="w-32 h-32 border-2 border-orange-100 rounded-full flex items-center justify-center mb-4 relative">
                                     <div class="text-[9px] font-black text-orange-200 transform -rotate-12">AS TAIPEI OFFICIAL SEAL</div>
@@ -348,7 +368,6 @@
             if(!d.isSigned) setTimeout(initSig, 150);
         };
 
-        /* ... 其他既有邏輯: renderHistoryMode, renderFormMode, toggleCustomInput, fillModels, renderItems, saveToCloud, deleteFromCloud, exportExcel 等完全保留 ... */
         window.renderHistoryMode = () => {
             const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
             const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
@@ -396,12 +415,20 @@
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">交車日期</label><input type="date" id="f-deliveryDate" value="${window.currentFormData.deliveryDate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
                         <div class="flex items-center gap-4 p-4 bg-slate-50 border rounded-2xl mt-4 cursor-pointer" onclick="const ck=document.getElementById('f-needsInvoice');ck.checked=!ck.checked"><input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 rounded border-slate-300 text-orange-500 focus:ring-orange-500" onclick="event.stopPropagation()"><label class="font-black text-slate-700 select-none">需開發票 (+5%)</label></div>
                     </div>
+                    
+                    <div class="space-y-2 mt-4">
+                        <label class="text-[10px] font-black text-slate-400 uppercase">備註事項 (選填)</label>
+                        <textarea id="f-notes" rows="3" placeholder="輸入特殊需求或提醒事項..." class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none resize-none">${window.currentFormData.notes || ''}</textarea>
+                    </div>
+
                     <div class="bg-slate-50 p-6 rounded-[2.5rem] border"><h3 class="font-black mb-6 text-xl text-slate-900">服務項目明細</h3><div id="items-container" class="space-y-4"></div><button type="button" onclick="window.addItem()" class="mt-6 w-full py-5 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button></div>
                     <button id="btn-next" class="w-full bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl transition-all">確認內容並預覽單據</button>
                 </div>
             `;
             window.fillModels(window.currentFormData.carBrand);
             window.renderItems();
+            
+            // Collect all inputs, specifically ensuring notes are extracted
             document.getElementById('btn-next').onclick = () => {
                 Object.assign(window.currentFormData, {
                     customerName: document.getElementById('f-customerName').value,
@@ -416,7 +443,8 @@
                     salesPersonCustom: document.getElementById('f-salesPersonCustom').value,
                     receiveDate: document.getElementById('f-receiveDate').value,
                     deliveryDate: document.getElementById('f-deliveryDate').value,
-                    needsInvoice: document.getElementById('f-needsInvoice').checked
+                    needsInvoice: document.getElementById('f-needsInvoice').checked,
+                    notes: document.getElementById('f-notes').value // Safe capture of notes value
                 });
                 window.setMode('quote');
             };
