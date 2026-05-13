@@ -71,24 +71,31 @@
         let firebaseConfig;
         try {
             if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                firebaseConfig = JSON.parse(__firebase_config);
+                firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
             } else {
                 firebaseConfig = {
-                    apiKey: "", 
+                    apiKey: "AIzaSyBEgWLZ4_1cCVswkKll6N4yW1O_xoTEGyg",
                     authDomain: "as-taipei-1a211.firebaseapp.com",
                     projectId: "as-taipei-1a211",
-                    storageBucket: "as-taipei-1a211.appspot.com",
-                    messagingSenderId: "367200282631",
-                    appId: "1:367200282631:web:1ca2e008df3114d59a850a"
+                    storageBucket: "as-taipei-1a211.firebasestorage.app",
+                    messagingSenderId: "193808418904",
+                    appId: "1:193808418904:web:b58e1317b5447b4f44e22d"
                 };
             }
         } catch (e) {
             console.error("Config Error:", e);
         }
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        // 初始化 Firebase，增加錯誤保護防止網頁完全卡死
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (e) {
+            console.error("Firebase Init Error:", e);
+        }
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'as-taipei-1a211';
         
         window.workOrders = [];
@@ -98,6 +105,11 @@
 
         const startAuth = async () => {
             const statusEl = document.getElementById('online-status');
+            if (!auth) {
+                if (statusEl) statusEl.innerText = "● 配置缺失，僅能離線瀏覽";
+                return;
+            }
+
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -121,15 +133,15 @@
                             if (window.currentMode === 'history') window.renderHistoryMode();
                         }, (error) => {
                             console.error("Firestore Error:", error);
-                            if (statusEl) statusEl.innerText = "● 雲端同步失敗: " + error.code;
+                            if (statusEl) statusEl.innerText = "● 權限不足或規則錯誤";
                         });
                     } else {
-                        if (statusEl) statusEl.innerText = "● 正在重新連線...";
+                        if (statusEl) statusEl.innerText = "● 正在驗證身分...";
                     }
                 });
             } catch (err) {
                 console.error("Auth Fail:", err);
-                if (statusEl) statusEl.innerText = "● 初始化失敗，請檢查網路或 Firebase 配置";
+                if (statusEl) statusEl.innerText = "● 連線失敗：請檢查 API Key 或網域授權";
             }
         };
 
@@ -592,7 +604,10 @@
         window.clearSig = () => { window.currentFormData.isSigned = false; window.currentFormData.signatureImage = null; window.renderQuoteMode(); };
 
         window.saveToCloud = async (orderData) => {
-            if (!auth.currentUser) { window.showMessage("尚未連線至雲端"); return; }
+            if (!auth || !auth.currentUser) { 
+                window.showMessage("尚未連線至雲端，請檢查配置"); 
+                return; 
+            }
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', orderData.id);
             try {
                 const cleanData = JSON.parse(JSON.stringify(orderData));
@@ -619,9 +634,11 @@
         };
 
         startAuth();
-        window.onload = () => {
+        
+        // 確保網頁載入後立即進入歷史模式，避免因 Firebase 延遲導致白屏
+        window.addEventListener('load', () => {
             window.setMode('history');
-        };
+        });
 
         window.setMode = window.setMode;
     </script>
