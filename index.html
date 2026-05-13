@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AS TAIPEI 雲端美研系統 v11.2</title>
+    <title>AS TAIPEI 雲端美研系統 v11.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --primary-orange: #f97316; }
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #0f172a; -webkit-tap-highlight-color: transparent; }
-        .signature-canvas { border: 2px solid #e2e8f0; background-color: #fff; touch-action: none; cursor: crosshair; border-radius: 12px; }
+        .signature-canvas { border: 2px solid #e2e8f0; background-color: #fff; touch-action: none; cursor: crosshair; border-radius: 16px; }
         
-        /* 響應式優化：手機端隱藏表格標頭，並將列改為塊級顯示 */
         @media (max-width: 768px) {
             .responsive-table thead { display: none; }
             .responsive-table tr { display: block; border-bottom: 8px solid #f1f5f9; padding: 15px 0; }
@@ -64,22 +63,29 @@
         const SALES_LIST = ["Audi", "小蔡", "小楊", "其他"];
 
         const SERVICE_TEMPLATES = [
-            "全車頂級車漆保護膜 (PPF)",
-            "全車改色膜施工",
-            "車頭局部防護方案",
-            "迎風面保護膜",
-            "內裝專屬保護膜",
-            "雙層陶瓷深層鍍膜",
-            "全車基礎美容增艷",
-            "精緻手作洗車保養",
-            "玻璃奈米撥水塗層",
-            "輪框專屬保護塗層",
-            "皮椅深層清潔養護",
-            "其他"
+            "全車頂級車漆保護膜 (PPF)", "全車改色膜施工", "車頭局部防護方案", "迎風面保護膜",
+            "內裝專屬保護膜", "雙層陶瓷深層鍍膜", "全車基礎美容增艷", "精緻手作洗車保養",
+            "玻璃奈米撥水塗層", "輪框專屬保護層", "皮椅深層清潔養護", "其他"
         ];
 
-        // 修正：依照 GitHub 警報安全性要求，將 API Key 設為空，由環境注入
-        const firebaseConfig = JSON.parse(__firebase_config);
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } else {
+                firebaseConfig = {
+                    apiKey: "", 
+                    authDomain: "as-taipei-1a211.firebaseapp.com",
+                    projectId: "as-taipei-1a211",
+                    storageBucket: "as-taipei-1a211.appspot.com",
+                    messagingSenderId: "367200282631",
+                    appId: "1:367200282631:web:1ca2e008df3114d59a850a"
+                };
+            }
+        } catch (e) {
+            console.error("Config Error:", e);
+        }
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -91,35 +97,45 @@
         window.currentFilterMonth = new Date().toISOString().slice(0, 7);
 
         const startAuth = async () => {
-            // 優先使用自定義 Token
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                try {
+            const statusEl = document.getElementById('online-status');
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
-                } catch (e) {
+                } else {
                     await signInAnonymously(auth);
                 }
-            } else {
-                await signInAnonymously(auth);
-            }
 
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    const statusEl = document.getElementById('online-status');
-                    if (statusEl) statusEl.innerText = "● 雲端連線中";
-                    
-                    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'workOrders'), orderBy("updatedAt", "desc"));
-                    onSnapshot(q, (snapshot) => {
-                        window.workOrders = snapshot.docs.map(doc => doc.data());
-                        if (window.currentMode === 'history') window.renderHistoryMode();
-                    }, (error) => {
-                        console.error("Firestore Listen Error:", error);
-                    });
-                }
-            });
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        if (statusEl) statusEl.innerText = "● 雲端連線成功";
+                        const q = query(
+                            collection(db, 'artifacts', appId, 'public', 'data', 'workOrders'), 
+                            orderBy("updatedAt", "desc")
+                        );
+
+                        onSnapshot(q, (snapshot) => {
+                            window.workOrders = snapshot.docs.map(doc => ({
+                                ...doc.data(),
+                                id: doc.id 
+                            }));
+                            if (window.currentMode === 'history') window.renderHistoryMode();
+                        }, (error) => {
+                            console.error("Firestore Error:", error);
+                            if (statusEl) statusEl.innerText = "● 雲端同步失敗: " + error.code;
+                        });
+                    } else {
+                        if (statusEl) statusEl.innerText = "● 正在重新連線...";
+                    }
+                });
+            } catch (err) {
+                console.error("Auth Fail:", err);
+                if (statusEl) statusEl.innerText = "● 初始化失敗，請檢查網路或 Firebase 配置";
+            }
         };
 
         window.calculateOrderTotal = (o) => {
-            const subtotal = (o.serviceItems || []).reduce((sum, item) => sum + (parseInt(item.price) || 0), 0);
+            if (!o || !o.serviceItems) return 0;
+            const subtotal = o.serviceItems.reduce((sum, item) => sum + (parseInt(item.price) || 0), 0);
             const hasTax = o.needsInvoice || o.paymentMethod === '信用卡';
             const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
             return subtotal + tax;
@@ -144,15 +160,12 @@
             const id = window.pendingDeleteId;
             const modal = document.getElementById('custom-confirm-modal');
             if (modal) modal.classList.add('hidden');
-            if (!id) return;
-            
+            if (!id || !auth.currentUser) return;
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', id));
-                window.pendingDeleteId = null;
                 window.showMessage("工單已成功刪除");
             } catch (e) {
-                console.error("Delete error:", e);
-                window.showMessage("刪除失敗，請檢查網路連線。");
+                window.showMessage("刪除失敗");
             }
         };
 
@@ -171,7 +184,9 @@
                     serviceItems: [{ name: '全車頂級車漆保護膜 (PPF)', nameCustom: '', price: 0 }],
                     notes: '', isSigned: false, signatureImage: null
                 };
-            } else if (data) { window.currentFormData = data; }
+            } else if (data) { 
+                window.currentFormData = JSON.parse(JSON.stringify(data)); 
+            }
             
             ['history', 'form', 'quote', 'printPreview'].forEach(m => {
                 const el = document.getElementById(`mode-${m}`);
@@ -189,24 +204,24 @@
         };
 
         window.renderHistoryMode = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth));
+            const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
             const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
 
             document.getElementById('mode-history').innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 no-print">
-                    <div class="bg-white p-6 rounded-3xl border shadow-sm">
+                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm">
                         <p class="text-[10px] font-black text-slate-400 uppercase mb-1">選擇查詢月份</p>
                         <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="w-full p-3 border-2 rounded-xl font-bold focus:border-orange-500 outline-none">
                     </div>
-                    <div class="bg-slate-900 p-6 rounded-3xl shadow-xl text-white">
+                    <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl text-white">
                         <p class="text-[10px] font-black text-slate-400 mb-1">案件量</p>
                         <p class="text-4xl font-black text-orange-500">${filtered.length} <span class="text-sm text-white">件</span></p>
                     </div>
-                    <div class="bg-orange-500 p-6 rounded-3xl shadow-xl text-white">
+                    <div class="bg-orange-500 p-6 rounded-[2rem] shadow-xl text-white">
                         <p class="text-[10px] font-black text-white/70 mb-1">總營收 (含稅)</p>
                         <p class="text-3xl font-black">NT$ ${monthlyRevenue.toLocaleString()}</p>
                     </div>
-                    <div class="bg-white p-6 rounded-3xl border shadow-sm flex flex-col justify-center gap-2">
+                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm flex flex-col justify-center gap-2">
                         <button onclick="window.exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all">
                             📊 匯出 Excel
                         </button>
@@ -216,31 +231,27 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-3xl border shadow-sm overflow-hidden no-print">
+                <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden no-print">
                     <table class="w-full text-left responsive-table">
                         <thead class="bg-slate-50 border-b">
                             <tr>
-                                <th class="p-5 text-xs font-bold text-slate-400">單號 / 日期</th>
-                                <th class="p-5 text-xs font-bold text-slate-400">客戶 / 車輛</th>
-                                <th class="p-5 text-xs font-bold text-slate-400">明細 / 總額</th>
-                                <th class="p-5 text-right text-xs font-bold text-slate-400">操作</th>
+                                <th class="p-6 text-xs font-bold text-slate-400">單號 / 日期</th>
+                                <th class="p-6 text-xs font-bold text-slate-400">客戶 / 車輛</th>
+                                <th class="p-6 text-xs font-bold text-slate-400">明細 / 總額</th>
+                                <th class="p-6 text-right text-xs font-bold text-slate-400">操作</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            ${filtered.map(o => {
-                                const subtotal = (o.serviceItems || []).reduce((s, i) => s + (parseInt(i.price) || 0), 0);
-                                const hasTax = o.needsInvoice || o.paymentMethod === '信用卡';
-                                const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
-                                const total = subtotal + tax;
-
+                            ${filtered.length === 0 ? '<tr><td colspan="4" class="p-10 text-center text-slate-400 font-bold">本月尚無工單紀錄</td></tr>' : filtered.map(o => {
+                                const total = window.calculateOrderTotal(o);
                                 return `
                                 <tr class="hover:bg-slate-50 transition-colors">
-                                    <td class="p-5 align-top">
+                                    <td class="p-6 align-top">
                                         <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">工單編號</div>
                                         <span class="font-black text-orange-600 text-lg">${o.id}</span><br>
                                         <span class="text-xs text-slate-400 font-medium">接車：${o.receiveDate}</span>
                                     </td>
-                                    <td class="p-5 align-top">
+                                    <td class="p-6 align-top">
                                         <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">客戶與車輛</div>
                                         <div class="flex items-center gap-1 font-black text-slate-800 text-lg">
                                             ${o.customerName} <span class="text-slate-400 text-sm font-normal">(${o.customerPhone || '-'})</span>
@@ -248,21 +259,20 @@
                                         <div class="font-black text-slate-700 uppercase tracking-tight text-xl mb-1">${o.licensePlate}</div>
                                         <div class="text-xs text-slate-500 font-bold">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand} ${o.carModel === '其他' ? o.carModelCustom : o.carModel}</div>
                                     </td>
-                                    <td class="p-5 align-top">
+                                    <td class="p-6 align-top">
                                         <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">金額明細</div>
-                                        <div class="text-[11px] text-slate-600 space-y-1 mb-3 bg-slate-50 p-2 rounded-lg">
+                                        <div class="text-[11px] text-slate-600 space-y-1 mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                                             ${o.serviceItems.map(it => `<div>• ${it.name === '其他' ? it.nameCustom : it.name} <span class="text-slate-400 text-[10px]">($${(it.price || 0).toLocaleString()})</span></div>`).join('')}
-                                            ${tax > 0 ? `<div class="text-orange-500 font-bold">• 稅額/手續費 ($${tax.toLocaleString()})</div>` : ''}
                                         </div>
                                         <div class="flex items-baseline gap-2">
                                             <span class="font-black text-slate-900 text-2xl">NT$ ${total.toLocaleString()}</span>
                                             <span class="text-[10px] text-slate-400 font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded">(${o.paymentMethod})</span>
                                         </div>
                                     </td>
-                                    <td class="p-5 text-right align-top">
+                                    <td class="p-6 text-right align-top">
                                         <div class="flex justify-end items-center gap-4 mt-2">
                                             <button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 hover:bg-slate-800 text-white text-sm py-2.5 px-6 rounded-xl font-black shadow-md transition-all">查看</button>
-                                            <button onclick="window.deleteFromCloud('${o.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 text-xl font-light">✕</button>
+                                            <button onclick="window.deleteFromCloud('${o.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 text-2xl font-light">✕</button>
                                         </div>
                                     </td>
                                 </tr>`;
@@ -274,7 +284,7 @@
         };
 
         window.renderPrintPreview = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth));
+            const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
             const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
             const container = document.getElementById('mode-printPreview');
 
@@ -282,7 +292,7 @@
                 <div class="no-print mb-6 flex flex-col md:flex-row justify-between items-center bg-orange-100 p-4 rounded-2xl border border-orange-200 gap-4">
                     <div>
                         <p class="text-orange-800 font-bold">🖨️ 列印預覽模式</p>
-                        <p class="text-xs text-orange-600">請確認內容無誤後點擊右側按鈕列印 (建議設定：A4 尺寸、無邊距)</p>
+                        <p class="text-xs text-orange-600">請確認內容無誤後點擊右側按鈕列印</p>
                     </div>
                     <div class="flex gap-3 w-full md:w-auto">
                         <button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white border border-slate-300 px-6 py-2 rounded-xl font-bold text-sm">返回</button>
@@ -293,40 +303,39 @@
                 <div class="print-container bg-white p-5 md:p-10 shadow-2xl border mx-auto mb-10 overflow-x-auto" style="width: 100%; max-width: 210mm; min-height: 297mm;">
                     <div class="flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-6">
                         <div>
-                            <h1 class="text-2xl md:text-3xl font-black tracking-tighter text-slate-900">AS TAIPEI 月度營收明細表</h1>
-                            <p class="text-slate-500 font-bold text-xs md:text-sm">Premium Paint Protection Center</p>
+                            <h1 class="text-3xl font-black tracking-tighter text-slate-900">AS TAIPEI 月度營收明細表</h1>
+                            <p class="text-slate-500 font-bold text-sm">Premium Paint Protection Center</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[10px] font-black text-slate-400 uppercase">報表月份</p>
-                            <p class="text-lg md:text-xl font-black">${window.currentFilterMonth}</p>
+                            <p class="text-xl font-black">${window.currentFilterMonth}</p>
                         </div>
                     </div>
-
                     <table class="print-report-table w-full">
                         <thead>
                             <tr class="bg-slate-100">
-                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">單號</th>
-                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">接車日期</th>
-                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">客戶/電話</th>
-                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">車牌/品牌</th>
-                                <th class="border p-2 text-right text-[10px] md:text-xs font-bold">總金額 (含稅)</th>
+                                <th class="border p-2 text-left text-xs font-bold">單號</th>
+                                <th class="border p-2 text-left text-xs font-bold">接車日期</th>
+                                <th class="border p-2 text-left text-xs font-bold">客戶/電話</th>
+                                <th class="border p-2 text-left text-xs font-bold">車牌/品牌</th>
+                                <th class="border p-2 text-right text-xs font-bold">總金額 (含稅)</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${filtered.map(o => `
                                 <tr>
-                                    <td class="border p-2 text-[10px] md:text-xs font-bold">${o.id}</td>
-                                    <td class="border p-2 text-[10px] md:text-xs">${o.receiveDate}</td>
-                                    <td class="border p-2 text-[10px] md:text-xs font-bold text-slate-900">${o.customerName}<br><span class="text-slate-400 font-normal text-[9px]">${o.customerPhone}</span></td>
-                                    <td class="border p-2 text-[10px] md:text-xs font-black">${o.licensePlate}<br><span class="text-[10px] font-normal text-slate-500">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand}</span></td>
-                                    <td class="border p-2 text-right text-[10px] md:text-xs font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td>
+                                    <td class="border p-2 text-xs font-bold">${o.id}</td>
+                                    <td class="border p-2 text-xs">${o.receiveDate}</td>
+                                    <td class="border p-2 text-xs font-bold text-slate-900">${o.customerName}<br><span class="text-slate-400 font-normal text-[9px]">${o.customerPhone}</span></td>
+                                    <td class="border p-2 text-xs font-black">${o.licensePlate}<br><span class="text-[10px] font-normal text-slate-500">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand}</span></td>
+                                    <td class="border p-2 text-right text-xs font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                         <tfoot>
                             <tr class="bg-slate-50">
-                                <td colspan="4" class="border p-3 text-right font-black text-xs md:text-sm">本月合計總營收</td>
-                                <td class="border p-3 text-right font-black text-base md:text-lg text-orange-600">NT$ ${monthlyRevenue.toLocaleString()}</td>
+                                <td colspan="4" class="border p-3 text-right font-black text-sm">本月合計總營收</td>
+                                <td class="border p-3 text-right font-black text-lg text-orange-600">NT$ ${monthlyRevenue.toLocaleString()}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -337,9 +346,9 @@
         window.renderFormMode = () => {
             const container = document.getElementById('mode-form');
             container.innerHTML = `
-                <div class="bg-white p-5 md:p-8 rounded-3xl border shadow-xl space-y-8 no-print">
-                    <div class="flex items-center gap-4 border-b pb-6"><h2 class="text-2xl md:text-3xl font-black text-slate-900">服務工單填寫</h2></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <div class="bg-white p-6 md:p-10 rounded-[3rem] border shadow-xl space-y-10 no-print">
+                    <div class="flex items-center gap-4 border-b pb-8"><h2 class="text-3xl font-black text-slate-900">服務工單填寫</h2></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">客戶姓名</label><input type="text" id="f-customerName" value="${window.currentFormData.customerName}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none"></div>
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">聯絡電話</label><input type="tel" id="f-customerPhone" value="${window.currentFormData.customerPhone}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none"></div>
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">車牌號碼</label><input type="text" id="f-licensePlate" value="${window.currentFormData.licensePlate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-black uppercase focus:ring-2 ring-orange-500 outline-none"></div>
@@ -371,12 +380,12 @@
                             <label class="font-black text-slate-700 select-none">需開發票 (+5%)</label>
                         </div>
                     </div>
-                    <div class="bg-slate-50 p-5 md:p-6 rounded-3xl border">
-                        <h3 class="font-black mb-4 flex justify-between items-center text-lg text-slate-900"><span>服務項目明細</span></h3>
+                    <div class="bg-slate-50 p-6 rounded-[2.5rem] border">
+                        <h3 class="font-black mb-6 text-xl text-slate-900">服務項目明細</h3>
                         <div id="items-container" class="space-y-4"></div>
-                        <button type="button" onclick="window.addItem()" class="mt-4 w-full py-4 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button>
+                        <button type="button" onclick="window.addItem()" class="mt-6 w-full py-5 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button>
                     </div>
-                    <button id="btn-next" class="w-full bg-slate-950 text-white py-6 rounded-3xl font-black text-xl md:text-2xl shadow-2xl hover:scale-[1.01] active:scale-95 transition-all">預覽報價並進行簽署</button>
+                    <button id="btn-next" class="w-full bg-slate-950 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-[1.01] active:scale-95 transition-all">預覽報價並進行簽署</button>
                 </div>
             `;
             window.fillModels(window.currentFormData.carBrand);
@@ -404,6 +413,7 @@
 
         window.toggleCustomInput = (field, val) => {
             const input = document.getElementById(`f-${field}Custom`);
+            if (!input) return;
             if (val === '其他') input.classList.remove('hidden'); else input.classList.add('hidden');
             if (field === 'carBrand') window.fillModels(val);
         };
@@ -417,17 +427,17 @@
 
         window.renderItems = () => {
             document.getElementById('items-container').innerHTML = window.currentFormData.serviceItems.map((it, i) => `
-                <div class="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-2xl border shadow-sm relative">
+                <div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl border shadow-sm relative">
                     <div class="flex-grow space-y-2">
-                        <select onchange="window.toggleItemCustom(${i}, this.value)" class="w-full p-3 bg-slate-50 border rounded-xl font-bold appearance-none">
+                        <select onchange="window.toggleItemCustom(${i}, this.value)" class="w-full p-4 bg-slate-50 border rounded-xl font-bold appearance-none">
                             ${SERVICE_TEMPLATES.map(t => `<option value="${t}" ${it.name===t?'selected':''}>${t}</option>`).join('')}
                         </select>
-                        <input type="text" id="it-custom-${i}" value="${it.nameCustom||''}" placeholder="手寫輸入服務項目" oninput="window.updItem(${i}, 'nameCustom', this.value)" class="w-full p-3 bg-orange-50 border-orange-100 border rounded-xl font-bold ${it.name==='其他'?'':'hidden'}">
+                        <input type="text" id="it-custom-${i}" value="${it.nameCustom||''}" placeholder="手寫輸入服務項目" oninput="window.updItem(${i}, 'nameCustom', this.value)" class="w-full p-4 bg-orange-50 border-orange-100 border rounded-xl font-bold ${it.name==='其他'?'':'hidden'}">
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-xs font-bold text-slate-400">NT$</span>
-                        <input type="number" value="${it.price}" placeholder="金額" oninput="window.updItem(${i}, 'price', this.value)" class="flex-grow md:w-32 p-3 bg-slate-50 border rounded-xl font-black text-right text-orange-600">
-                        <button onclick="window.removeItem(${i})" class="text-slate-300 hover:text-red-500 p-2 text-xl">✕</button>
+                        <input type="number" value="${it.price}" placeholder="金額" oninput="window.updItem(${i}, 'price', this.value)" class="flex-grow md:w-40 p-4 bg-slate-50 border rounded-xl font-black text-right text-orange-600">
+                        <button onclick="window.removeItem(${i})" class="text-slate-300 hover:text-red-500 p-2 text-2xl transition-colors">✕</button>
                     </div>
                 </div>
             `).join('');
@@ -442,7 +452,6 @@
             const d = window.currentFormData;
             const container = document.getElementById('mode-quote');
             const subtotal = d.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-            
             const hasTax = d.needsInvoice || d.paymentMethod === '信用卡';
             const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
             const total = subtotal + tax;
@@ -453,103 +462,113 @@
 
             container.innerHTML = `
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div class="lg:col-span-3 bg-white p-6 md:p-12 rounded-3xl shadow-2xl border-t-[12px] border-orange-500 print-container">
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 pb-6 mb-8 gap-4">
+                    <div class="lg:col-span-3 bg-white p-6 md:p-12 rounded-[3.5rem] shadow-2xl border-t-[12px] border-orange-500 print-container">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 pb-8 mb-10 gap-6">
                             <div>
-                                <h1 class="text-3xl md:text-4xl font-black text-slate-950 tracking-tighter">AS TAIPEI</h1>
-                                <p class="text-[10px] font-bold text-slate-400 italic mt-1 uppercase tracking-widest">Premium Paint Protection Film Center</p>
+                                <h1 class="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter">AS TAIPEI</h1>
+                                <p class="text-[10px] font-bold text-slate-400 italic mt-2 uppercase tracking-widest">Premium Paint Protection Film Center</p>
                             </div>
                             <div class="text-left md:text-right">
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">工單編號</p>
-                                <p class="text-xl font-black text-orange-600">${d.id}</p>
+                                <p class="text-2xl font-black text-orange-600">${d.id}</p>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 p-5 md:p-6 bg-slate-50 rounded-3xl border text-sm">
-                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase">客戶</p><p class="font-black text-base text-slate-900">${d.customerName}</p></div>
-                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase">電話</p><p class="font-black text-base text-slate-900">${d.customerPhone}</p></div>
-                            <div class="col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase">車輛詳情</p><p class="font-black text-base text-slate-900">${brandDisplay} ${modelDisplay} <span class="bg-orange-500 text-white px-2 py-0.5 rounded text-[10px] ml-1 inline-block">${d.licensePlate}</span></p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">接待人員</p><p class="font-black text-sm text-slate-900">${salesDisplay}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">接車日期</p><p class="font-bold text-sm text-slate-900">${d.receiveDate}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">交車日期</p><p class="font-bold text-sm text-orange-600">${d.deliveryDate}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">結帳方式</p><p class="font-bold text-sm text-slate-900">${d.paymentMethod} ${hasTax?'(含 5%)':''}</p></div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10 p-6 md:p-8 bg-slate-50 rounded-[2rem] border text-sm shadow-inner">
+                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">客戶</p><p class="font-black text-base text-slate-900">${d.customerName}</p></div>
+                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">電話</p><p class="font-black text-base text-slate-900">${d.customerPhone}</p></div>
+                            <div class="col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">車輛詳情</p><p class="font-black text-base text-slate-900">${brandDisplay} ${modelDisplay} <span class="bg-orange-500 text-white px-3 py-1 rounded-full text-[10px] ml-1 inline-block font-black">${d.licensePlate}</span></p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">接待人員</p><p class="font-black text-sm text-slate-900">${salesDisplay}</p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">接車日期</p><p class="font-bold text-sm text-slate-900">${d.receiveDate}</p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">交車日期</p><p class="font-bold text-sm text-orange-600">${d.deliveryDate}</p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">結帳方式</p><p class="font-bold text-sm text-slate-900">${d.paymentMethod} ${hasTax?'(含 5%)':''}</p></div>
                         </div>
 
-                        <div class="overflow-hidden rounded-2xl border mb-8 shadow-sm">
+                        <div class="overflow-hidden rounded-[1.5rem] border mb-10 shadow-sm">
                             <table class="w-full">
-                                <thead class="bg-slate-900 text-white"><tr><th class="p-4 text-left text-sm font-bold">服務項目</th><th class="p-4 text-right text-sm font-bold">金額</th></tr></thead>
+                                <thead class="bg-slate-900 text-white"><tr><th class="p-5 text-left text-sm font-bold">服務項目</th><th class="p-5 text-right text-sm font-bold">金額</th></tr></thead>
                                 <tbody class="divide-y font-bold text-slate-700">
-                                    ${d.serviceItems.map(item => `<tr><td class="p-4 text-sm">${item.name === '其他' ? item.nameCustom : item.name}</td><td class="p-4 text-right font-black text-sm">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
-                                    ${tax > 0 ? `<tr class="bg-orange-50"><td class="p-4 text-orange-600 text-sm">手續費 / 發票稅額 (5%)</td><td class="p-4 text-right font-black text-orange-600 text-sm">NT$ ${tax.toLocaleString()}</td></tr>` : ''}
+                                    ${d.serviceItems.map(item => `<tr><td class="p-5 text-sm">${item.name === '其他' ? item.nameCustom : item.name}</td><td class="p-5 text-right font-black text-sm">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
+                                    ${tax > 0 ? `<tr class="bg-orange-50"><td class="p-5 text-orange-600 text-sm font-black">手續費 / 發票稅額 (5%)</td><td class="p-5 text-right font-black text-orange-600 text-sm">NT$ ${tax.toLocaleString()}</td></tr>` : ''}
                                 </tbody>
-                                <tfoot class="bg-slate-950 text-white text-lg md:text-xl">
-                                    <tr><td class="p-5 text-right font-black">應付總計</td><td class="p-5 text-right font-black text-orange-500">NT$ ${total.toLocaleString()}</td></tr>
+                                <tfoot class="bg-slate-950 text-white">
+                                    <tr><td class="p-6 text-right font-black text-lg">應付總計</td><td class="p-6 text-right font-black text-2xl text-orange-500 tracking-tight">NT$ ${total.toLocaleString()}</td></tr>
                                 </tfoot>
                             </table>
                         </div>
 
-                        <div class="space-y-8 text-[12px] leading-relaxed border-t pt-10">
-                            <div class="notice-card">
-                                <h4 class="font-black text-base text-slate-900 mb-3 flex items-center gap-2">⚠️ 施工品質驗收標準</h4>
-                                <div class="text-slate-600 space-y-2">
-                                    <p>車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。</p>
-                                    <p class="font-bold text-slate-800">微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</p>
-                                    <p>在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業驗收標準。</p>
-                                </div>
-                            </div>
+                        <!-- 條款區塊：改為垂直堆疊排列 (根據圖片二) -->
+                        <div class="space-y-10 text-[14px] leading-relaxed border-t pt-10 text-slate-700 font-medium">
                             
-                            <div class="notice-card" style="border-left-color: #3b82f6;">
-                                <h4 class="font-black text-base text-slate-900 mb-3 flex items-center gap-2">🛡️ 保護膜養護須知</h4>
-                                <div class="text-slate-600 space-y-3">
-                                    <p><span class="font-black text-slate-900">1. 48小時嚴禁洗車：</span>施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</p>
-                                    <p><span class="font-black text-slate-900">2. 洗車務必擦乾：</span>洗車後請確實將水分擦乾，防止水垢產生。嚴禁高壓水槍近距離直噴膜面邊緣。</p>
-                                    <p><span class="font-black text-slate-900">3. 初期霧感現象：</span>安裝後若有微霧感屬水分蒸發正常過程，視天候約 10 天後恢復高亮。</p>
-                                    <p><span class="font-black text-slate-900">4. 專業保養建議：</span>建議每 1-2 個月回廠養護，可延長膜料壽命與撥水效果。</p>
+                            <!-- 施工品質驗收標準 -->
+                            <div class="border-l-4 border-orange-500 pl-6">
+                                <h4 class="font-black text-lg text-slate-900 flex items-center gap-2 mb-4">
+                                    <span class="text-orange-500">⚠️</span> 施工品質驗收標準
+                                </h4>
+                                <div class="space-y-2">
+                                    <p>• 車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。</p>
+                                    <p>• 微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</p>
+                                    <p>• 在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業驗收標準。</p>
                                 </div>
                             </div>
 
-                            <div class="notice-card" style="border-left-color: #ef4444;">
-                                <h4 class="font-black text-base text-slate-900 mb-3 flex items-center gap-2">🚫 不在保固服務範圍之事項</h4>
-                                <div class="text-slate-600 space-y-2">
-                                    <p><span class="font-black text-slate-900">1. 未按時回廠維護：</span>未依規定定期回 AS TAIPEI 進行專業養護者。</p>
-                                    <p><span class="font-black text-slate-900">2. 不當洗車與外力：</span>強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</p>
-                                    <p><span class="font-black text-slate-900">3. 環境污染物浸蝕：</span>未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</p>
-                                    <p><span class="font-black text-slate-900">4. 水漬印記：</span>水源中礦物質沉澱形成之水垢印記。</p>
-                                    <p><span class="font-black text-slate-900">5. 物理性損傷：</span>碎石擊穿、人為刮傷、事故導致之破損。</p>
-                                    <p><span class="font-black text-slate-900">6. 未經授權之加工：</span>非本公司授權之第三方加工或撕除膜料者。</p>
+                            <!-- 保護膜養護須知 -->
+                            <div class="border-l-4 border-blue-500 pl-6">
+                                <h4 class="font-black text-lg text-slate-900 flex items-center gap-2 mb-4">
+                                    <span class="text-blue-500">🛡️</span> 保護膜養護須知
+                                </h4>
+                                <div class="space-y-2">
+                                    <p>1. 48小時嚴禁洗車：施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</p>
+                                    <p>2. 洗車務必擦乾：洗車後請確實將水分擦乾，防止水垢產生。嚴禁高壓水槍近距離直噴膜面邊緣。</p>
+                                    <p>3. 初期霧感現象：安裝後若有微霧感屬水分蒸發正常過程，視天候約 10 天後恢復高亮。</p>
+                                    <p>4. 專業保養建議：建議每 1-2 個月回廠養護，可延長膜料壽命與撥水效果。</p>
+                                </div>
+                            </div>
+
+                            <!-- 不在保固服務範圍之事項 (單欄垂直排列) -->
+                            <div class="border-l-4 border-slate-700 pl-6">
+                                <h4 class="font-black text-lg text-slate-900 flex items-center gap-2 mb-4">
+                                    <span class="text-slate-700">🚫</span> 不在保固服務範圍之事項
+                                </h4>
+                                <div class="space-y-2">
+                                    <p>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</p>
+                                    <p>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</p>
+                                    <p>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</p>
+                                    <p>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</p>
+                                    <p>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</p>
+                                    <p>6. 未經授權之加工：非本公司授權之第三方加工或撕除膜料者。</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 修正：優化簽名區域的垂直對齊與比例 -->
-                        <div class="mt-12 pt-10 border-t-2 border-slate-900 border-opacity-10 grid grid-cols-1 md:grid-cols-2 gap-10">
+                        <div class="mt-16 pt-12 border-t-2 border-slate-900 border-opacity-10 grid grid-cols-1 md:grid-cols-2 gap-12">
                              <div class="flex flex-col h-full">
-                                 <p class="text-[10px] font-black uppercase mb-4 text-slate-400 tracking-widest">AS TAIPEI 簽章</p>
+                                 <p class="text-[10px] font-black uppercase mb-6 text-slate-400 tracking-[0.2em]">AS TAIPEI 簽章</p>
                                  <div class="flex-grow flex items-end pb-4 border-b-2 border-slate-900 w-full min-h-[140px] md:min-h-[180px]">
-                                     <span class="text-4xl md:text-5xl font-black italic text-slate-950 tracking-tighter">${salesDisplay}</span>
+                                     <span class="text-4xl md:text-5xl font-black italic text-slate-950 tracking-tighter ml-2 mb-1">${salesDisplay}</span>
                                  </div>
                              </div>
 
                              <div class="flex flex-col h-full">
-                                 <div class="flex items-center gap-2 mb-4">
-                                     <span class="text-blue-500">🖋️</span>
-                                     <p class="text-[10px] font-black uppercase text-slate-900 tracking-widest">客戶簽署</p>
+                                 <div class="flex items-center gap-2 mb-6">
+                                     <span class="text-blue-500 text-lg">🖋️</span>
+                                     <p class="text-[10px] font-black uppercase text-slate-900 tracking-[0.2em]">客戶簽署</p>
                                  </div>
-                                 <div class="flex-grow bg-white rounded-3xl border-2 border-slate-200 mb-4 overflow-hidden relative group min-h-[140px] md:min-h-[180px]">
+                                 <div class="flex-grow bg-white rounded-[2rem] border-2 border-slate-200 mb-6 overflow-hidden relative min-h-[140px] md:min-h-[180px]">
                                     ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto object-contain">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
                                  </div>
-                                 <div class="flex gap-2 no-print">
-                                    ${!d.isSigned ? `<button onclick="window.saveSig()" class="flex-grow bg-orange-600 hover:bg-orange-700 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">確認簽署</button>` : ''}
-                                    <button onclick="window.clearSig()" class="bg-slate-200 hover:bg-slate-300 text-slate-600 px-6 md:px-8 py-4 rounded-2xl font-black shadow-sm transition-all text-xs md:text-sm">重設</button>
+                                 <div class="flex gap-3 no-print">
+                                    ${!d.isSigned ? `<button onclick="window.saveSig()" class="flex-[3] bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">確認簽署</button>` : ''}
+                                    <button onclick="window.clearSig()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 py-5 rounded-2xl font-black shadow-sm transition-all text-xs">重設</button>
                                  </div>
                              </div>
                         </div>
                     </div>
 
                     <div class="no-print space-y-4">
-                        <button onclick="window.saveToCloud(window.currentFormData)" class="w-full bg-orange-500 text-white py-6 rounded-3xl font-black text-xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">✅ 儲存工單</button>
-                        <button onclick="window.print()" class="w-full bg-slate-950 text-white py-6 rounded-3xl font-black text-xl shadow-xl active:scale-95 transition-all">🖨️ 列印單據</button>
-                        <button onclick="window.setMode('form')" class="w-full bg-white text-slate-500 py-4 rounded-2xl font-bold border hover:bg-slate-50 active:scale-95 transition-all">返回修改</button>
+                        <button onclick="window.saveToCloud(window.currentFormData)" class="w-full bg-orange-500 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">✅ 儲存工單</button>
+                        <button onclick="window.print()" class="w-full bg-slate-950 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl active:scale-95 transition-all">🖨️ 列印單據</button>
+                        <button onclick="window.setMode('form')" class="w-full bg-white text-slate-500 py-4 rounded-2xl font-bold border hover:bg-slate-50 active:scale-95 transition-all">返回修改內容</button>
                     </div>
                 </div>
             `;
@@ -569,24 +588,25 @@
             sigC.addEventListener('touchstart', (e)=>{e.preventDefault(); s(e);}, {passive:false}); sigC.addEventListener('touchmove', (e)=>{e.preventDefault(); m(e);}, {passive:false});
         };
         
-        window.saveSig = () => { const c = document.getElementById('sig-canvas'); window.currentFormData.signatureImage = c.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
+        window.saveSig = () => { const c = document.getElementById('sig-canvas'); if(!c) return; window.currentFormData.signatureImage = c.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
         window.clearSig = () => { window.currentFormData.isSigned = false; window.currentFormData.signatureImage = null; window.renderQuoteMode(); };
 
         window.saveToCloud = async (orderData) => {
-            if (!auth.currentUser) return;
+            if (!auth.currentUser) { window.showMessage("尚未連線至雲端"); return; }
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', orderData.id);
             try {
-                await setDoc(docRef, { ...orderData, updatedAt: serverTimestamp() }, { merge: true });
-                window.setMode('history');
+                const cleanData = JSON.parse(JSON.stringify(orderData));
+                await setDoc(docRef, { ...cleanData, updatedAt: serverTimestamp() }, { merge: true });
                 window.showMessage("工單儲存成功");
+                window.setMode('history');
             } catch (e) { 
-                console.error(e); 
+                console.error("Save Error:", e);
                 window.showMessage("儲存失敗，請檢查權限"); 
             }
         };
 
         window.exportExcel = () => {
-            const data = window.workOrders.filter(o => o.receiveDate.startsWith(window.currentFilterMonth)).map(o => ({
+            const data = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth)).map(o => ({
                 "單號": o.id, "日期": o.receiveDate, "客戶": o.customerName, "電話": o.customerPhone, "車牌": o.licensePlate, 
                 "品牌": o.carBrand==='其他'?o.carBrandCustom:o.carBrand, "型號": o.carModel==='其他'?o.carModelCustom:o.carModel,
                 "接待": o.salesPerson==='其他'?o.salesPersonCustom:o.salesPerson, "付款方式": o.paymentMethod,
@@ -599,41 +619,43 @@
         };
 
         startAuth();
+        window.onload = () => {
+            window.setMode('history');
+        };
+
+        window.setMode = window.setMode;
     </script>
 
-    <header class="no-print bg-slate-950 py-10 px-4 text-center shadow-2xl">
-        <h1 class="text-4xl md:text-5xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1>
-        <div id="online-status" class="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-widest italic">初始化雲端環境...</div>
+    <header class="no-print bg-slate-950 py-12 px-4 text-center shadow-2xl">
+        <h1 class="text-5xl md:text-6xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1>
+        <div id="online-status" class="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-[0.3em] italic">初始化雲端環境...</div>
     </header>
 
-    <main id="app-container" class="max-w-6xl mx-auto px-4 py-6 md:py-10 print-container">
-        <nav id="nav-bar" class="no-print flex flex-row justify-center gap-3 md:gap-6 mb-8 md:mb-12">
-            <button onclick="setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-4 md:p-5 px-6 md:px-12 rounded-2xl md:rounded-3xl font-black shadow-sm border border-slate-200 hover:bg-slate-50 text-sm md:text-base transition-all">📋 工單總表</button>
-            <button onclick="setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-4 md:p-5 px-6 md:px-12 rounded-2xl md:rounded-3xl font-black shadow-xl hover:bg-orange-600 text-sm md:text-base transition-all">＋ 建立新案</button>
+    <main id="app-container" class="max-w-6xl mx-auto px-4 py-8 md:py-14 print-container">
+        <nav id="nav-bar" class="no-print flex flex-row justify-center gap-4 md:gap-8 mb-10 md:mb-16">
+            <button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-5 md:p-6 px-8 md:px-16 rounded-[2rem] font-black shadow-lg border border-slate-100 hover:bg-slate-50 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">📋 工單總表</button>
+            <button onclick="window.setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-5 md:p-6 px-8 md:px-16 rounded-[2rem] font-black shadow-2xl shadow-orange-200 hover:bg-orange-600 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">＋ 建立新案</button>
         </nav>
-
         <section id="mode-history" class="hidden"></section>
         <section id="mode-form" class="hidden"></section>
         <section id="mode-quote" class="hidden"></section>
         <section id="mode-printPreview" class="hidden"></section>
     </main>
 
-    <!-- 刪除確認視窗：手機端優化 -->
     <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden p-4 no-print">
-        <div class="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center border-t-8 border-red-500 animate-in fade-in zoom-in duration-200">
-            <div class="text-4xl md:text-5xl mb-4">🗑️</div>
-            <h3 class="text-xl md:text-2xl font-black text-slate-900 mb-2 tracking-tighter">確認要刪除嗎？</h3>
-            <p class="text-sm md:text-base text-slate-500 font-medium mb-8 leading-relaxed">刪除後單據資料將無法復原，<br>請確認是否繼續操作。</p>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('custom-confirm-modal').classList.add('hidden')" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black transition-all hover:bg-slate-200">取消</button>
-                <button onclick="window.executeDelete()" class="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200 transition-all hover:bg-red-600 active:scale-95">確定刪除</button>
+        <div class="bg-white p-8 md:p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center border-t-8 border-red-500 animate-in fade-in zoom-in duration-200">
+            <div class="text-5xl mb-6">🗑️</div>
+            <h3 class="text-2xl font-black text-slate-900 mb-2 tracking-tighter">確認要刪除嗎？</h3>
+            <p class="text-sm text-slate-500 font-medium mb-10 leading-relaxed">刪除後單據資料將無法從雲端復原。</p>
+            <div class="flex gap-4">
+                <button onclick="document.getElementById('custom-confirm-modal').classList.add('hidden')" class="flex-1 py-5 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100">取消</button>
+                <button onclick="window.executeDelete()" class="flex-1 py-5 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200 transition-all hover:bg-red-600 active:scale-95">確定</button>
             </div>
         </div>
     </div>
 
-    <!-- UI 訊息條：手機端優化 -->
-    <div id="ui-message" class="fixed top-5 md:top-10 left-1/2 -translate-x-1/2 z-[200] hidden no-print w-[90%] md:w-auto">
-        <div class="bg-slate-900 text-white px-6 md:px-10 py-4 rounded-2xl md:rounded-3xl shadow-2xl font-black text-xs md:text-sm tracking-wide animate-bounce flex items-center justify-center gap-3 border border-slate-700">
+    <div id="ui-message" class="fixed top-10 left-1/2 -translate-x-1/2 z-[200] hidden no-print w-[90%] md:w-auto">
+        <div class="bg-slate-950 text-white px-10 py-5 rounded-[2rem] shadow-2xl font-black text-sm tracking-widest animate-bounce flex items-center justify-center gap-4 border border-slate-800">
             <span class="text-orange-500 text-xl">●</span>
             <span id="ui-message-text"></span>
         </div>
