@@ -36,7 +36,7 @@
 <body class="min-h-screen">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const CAR_DATABASE = {
@@ -78,26 +78,30 @@
             "其他"
         ];
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBEgWLZ4_1cCVswkKll6N4yW1O_xoTEGyg",
-            authDomain: "as-taipei-1a211.firebaseapp.com",
-            projectId: "as-taipei-1a211",
-            storageBucket: "as-taipei-1a211.firebasestorage.app",
-            messagingSenderId: "193808418904",
-            appId: "1:193808418904:web:b58e1317b5447b4f44e22d"
-        };
-
+        // 修正：依照 GitHub 警報安全性要求，將 API Key 設為空，由環境注入
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = "as-taipei-1a211";
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'as-taipei-1a211';
         
         window.workOrders = [];
         window.currentMode = 'history';
         window.currentFormData = {};
         window.currentFilterMonth = new Date().toISOString().slice(0, 7);
 
-        const startAuth = () => {
+        const startAuth = async () => {
+            // 優先使用自定義 Token
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                try {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } catch (e) {
+                    await signInAnonymously(auth);
+                }
+            } else {
+                await signInAnonymously(auth);
+            }
+
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     const statusEl = document.getElementById('online-status');
@@ -107,13 +111,9 @@
                     onSnapshot(q, (snapshot) => {
                         window.workOrders = snapshot.docs.map(doc => doc.data());
                         if (window.currentMode === 'history') window.renderHistoryMode();
+                    }, (error) => {
+                        console.error("Firestore Listen Error:", error);
                     });
-                } else {
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (e) {
-                        console.error("Auth error:", e);
-                    }
                 }
             });
         };
@@ -251,7 +251,7 @@
                                     <td class="p-5 align-top">
                                         <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">金額明細</div>
                                         <div class="text-[11px] text-slate-600 space-y-1 mb-3 bg-slate-50 p-2 rounded-lg">
-                                            ${o.serviceItems.map(it => `<div>• ${it.name === '其他' ? it.nameCustom : it.name} <span class="text-slate-400">($${(it.price || 0).toLocaleString()})</span></div>`).join('')}
+                                            ${o.serviceItems.map(it => `<div>• ${it.name === '其他' ? it.nameCustom : it.name} <span class="text-slate-400 text-[10px]">($${(it.price || 0).toLocaleString()})</span></div>`).join('')}
                                             ${tax > 0 ? `<div class="text-orange-500 font-bold">• 稅額/手續費 ($${tax.toLocaleString()})</div>` : ''}
                                         </div>
                                         <div class="flex items-baseline gap-2">
@@ -261,7 +261,7 @@
                                     </td>
                                     <td class="p-5 text-right align-top">
                                         <div class="flex justify-end items-center gap-4 mt-2">
-                                            <button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="flex-1 md:flex-none bg-slate-900 hover:bg-slate-800 text-white text-sm py-3 px-8 rounded-xl font-black shadow-md transition-all">查看</button>
+                                            <button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 hover:bg-slate-800 text-white text-sm py-2.5 px-6 rounded-xl font-black shadow-md transition-all">查看</button>
                                             <button onclick="window.deleteFromCloud('${o.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 text-xl font-light">✕</button>
                                         </div>
                                     </td>
@@ -293,7 +293,7 @@
                 <div class="print-container bg-white p-5 md:p-10 shadow-2xl border mx-auto mb-10 overflow-x-auto" style="width: 100%; max-width: 210mm; min-height: 297mm;">
                     <div class="flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-6">
                         <div>
-                            <h1 class="text-2xl md:text-3xl font-black tracking-tighter">AS TAIPEI 月度營收明細表</h1>
+                            <h1 class="text-2xl md:text-3xl font-black tracking-tighter text-slate-900">AS TAIPEI 月度營收明細表</h1>
                             <p class="text-slate-500 font-bold text-xs md:text-sm">Premium Paint Protection Center</p>
                         </div>
                         <div class="text-right">
@@ -305,11 +305,11 @@
                     <table class="print-report-table w-full">
                         <thead>
                             <tr class="bg-slate-100">
-                                <th class="border p-2 text-left text-[10px] md:text-xs">單號</th>
-                                <th class="border p-2 text-left text-[10px] md:text-xs">接車日期</th>
-                                <th class="border p-2 text-left text-[10px] md:text-xs">客戶/電話</th>
-                                <th class="border p-2 text-left text-[10px] md:text-xs">車牌/品牌</th>
-                                <th class="border p-2 text-right text-[10px] md:text-xs">總金額 (含稅)</th>
+                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">單號</th>
+                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">接車日期</th>
+                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">客戶/電話</th>
+                                <th class="border p-2 text-left text-[10px] md:text-xs font-bold">車牌/品牌</th>
+                                <th class="border p-2 text-right text-[10px] md:text-xs font-bold">總金額 (含稅)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -317,8 +317,8 @@
                                 <tr>
                                     <td class="border p-2 text-[10px] md:text-xs font-bold">${o.id}</td>
                                     <td class="border p-2 text-[10px] md:text-xs">${o.receiveDate}</td>
-                                    <td class="border p-2 text-[10px] md:text-xs">${o.customerName}<br><span class="text-slate-400">${o.customerPhone}</span></td>
-                                    <td class="border p-2 text-[10px] md:text-xs font-black">${o.licensePlate}<br><span class="text-[10px] font-normal">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand}</span></td>
+                                    <td class="border p-2 text-[10px] md:text-xs font-bold text-slate-900">${o.customerName}<br><span class="text-slate-400 font-normal text-[9px]">${o.customerPhone}</span></td>
+                                    <td class="border p-2 text-[10px] md:text-xs font-black">${o.licensePlate}<br><span class="text-[10px] font-normal text-slate-500">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand}</span></td>
                                     <td class="border p-2 text-right text-[10px] md:text-xs font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td>
                                 </tr>
                             `).join('')}
@@ -372,7 +372,7 @@
                         </div>
                     </div>
                     <div class="bg-slate-50 p-5 md:p-6 rounded-3xl border">
-                        <h3 class="font-black mb-4 flex justify-between items-center text-lg"><span>服務項目明細</span></h3>
+                        <h3 class="font-black mb-4 flex justify-between items-center text-lg text-slate-900"><span>服務項目明細</span></h3>
                         <div id="items-container" class="space-y-4"></div>
                         <button type="button" onclick="window.addItem()" class="mt-4 w-full py-4 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button>
                     </div>
@@ -466,19 +466,19 @@
                         </div>
 
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 p-5 md:p-6 bg-slate-50 rounded-3xl border text-sm">
-                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase">客戶</p><p class="font-black text-base">${d.customerName}</p></div>
-                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase">電話</p><p class="font-black text-base">${d.customerPhone}</p></div>
-                            <div class="col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase">車輛詳情</p><p class="font-black text-base">${brandDisplay} ${modelDisplay} <span class="bg-orange-500 text-white px-2 py-0.5 rounded text-[10px] ml-1 inline-block">${d.licensePlate}</span></p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">接待人員</p><p class="font-black text-sm">${salesDisplay}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">接車日期</p><p class="font-bold text-sm">${d.receiveDate}</p></div>
+                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase">客戶</p><p class="font-black text-base text-slate-900">${d.customerName}</p></div>
+                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase">電話</p><p class="font-black text-base text-slate-900">${d.customerPhone}</p></div>
+                            <div class="col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase">車輛詳情</p><p class="font-black text-base text-slate-900">${brandDisplay} ${modelDisplay} <span class="bg-orange-500 text-white px-2 py-0.5 rounded text-[10px] ml-1 inline-block">${d.licensePlate}</span></p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase">接待人員</p><p class="font-black text-sm text-slate-900">${salesDisplay}</p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase">接車日期</p><p class="font-bold text-sm text-slate-900">${d.receiveDate}</p></div>
                             <div><p class="text-[10px] font-black text-slate-400 uppercase">交車日期</p><p class="font-bold text-sm text-orange-600">${d.deliveryDate}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase">結帳方式</p><p class="font-bold text-sm">${d.paymentMethod} ${hasTax?'(加收5%)':''}</p></div>
+                            <div><p class="text-[10px] font-black text-slate-400 uppercase">結帳方式</p><p class="font-bold text-sm text-slate-900">${d.paymentMethod} ${hasTax?'(含 5%)':''}</p></div>
                         </div>
 
-                        <div class="overflow-hidden rounded-2xl border mb-8">
+                        <div class="overflow-hidden rounded-2xl border mb-8 shadow-sm">
                             <table class="w-full">
-                                <thead class="bg-slate-900 text-white"><tr><th class="p-4 text-left text-sm">服務項目</th><th class="p-4 text-right text-sm">金額</th></tr></thead>
-                                <tbody class="divide-y font-bold">
+                                <thead class="bg-slate-900 text-white"><tr><th class="p-4 text-left text-sm font-bold">服務項目</th><th class="p-4 text-right text-sm font-bold">金額</th></tr></thead>
+                                <tbody class="divide-y font-bold text-slate-700">
                                     ${d.serviceItems.map(item => `<tr><td class="p-4 text-sm">${item.name === '其他' ? item.nameCustom : item.name}</td><td class="p-4 text-right font-black text-sm">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
                                     ${tax > 0 ? `<tr class="bg-orange-50"><td class="p-4 text-orange-600 text-sm">手續費 / 發票稅額 (5%)</td><td class="p-4 text-right font-black text-orange-600 text-sm">NT$ ${tax.toLocaleString()}</td></tr>` : ''}
                                 </tbody>
@@ -521,21 +521,22 @@
                             </div>
                         </div>
 
+                        <!-- 修正：優化簽名區域的垂直對齊與比例 -->
                         <div class="mt-12 pt-10 border-t-2 border-slate-900 border-opacity-10 grid grid-cols-1 md:grid-cols-2 gap-10">
-                             <div>
+                             <div class="flex flex-col h-full">
                                  <p class="text-[10px] font-black uppercase mb-4 text-slate-400 tracking-widest">AS TAIPEI 簽章</p>
-                                 <div class="h-24 md:h-32 flex items-end pb-4 border-b-2 border-slate-900 w-full">
-                                     <span class="text-4xl md:text-5xl font-black italic text-slate-900 tracking-tighter">${salesDisplay}</span>
+                                 <div class="flex-grow flex items-end pb-4 border-b-2 border-slate-900 w-full min-h-[140px] md:min-h-[180px]">
+                                     <span class="text-4xl md:text-5xl font-black italic text-slate-950 tracking-tighter">${salesDisplay}</span>
                                  </div>
                              </div>
 
-                             <div>
+                             <div class="flex flex-col h-full">
                                  <div class="flex items-center gap-2 mb-4">
                                      <span class="text-blue-500">🖋️</span>
                                      <p class="text-[10px] font-black uppercase text-slate-900 tracking-widest">客戶簽署</p>
                                  </div>
-                                 <div class="h-40 md:h-48 bg-white rounded-3xl border-2 border-slate-200 mb-4 overflow-hidden relative group">
-                                    ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
+                                 <div class="flex-grow bg-white rounded-3xl border-2 border-slate-200 mb-4 overflow-hidden relative group min-h-[140px] md:min-h-[180px]">
+                                    ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto object-contain">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
                                  </div>
                                  <div class="flex gap-2 no-print">
                                     ${!d.isSigned ? `<button onclick="window.saveSig()" class="flex-grow bg-orange-600 hover:bg-orange-700 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">確認簽署</button>` : ''}
@@ -560,7 +561,7 @@
             sigC = document.getElementById('sig-canvas'); if(!sigC) return;
             sigX = sigC.getContext('2d');
             sigC.width = sigC.offsetWidth; sigC.height = sigC.offsetHeight;
-            sigX.strokeStyle = "#1e293b"; sigX.lineWidth = 4; sigX.lineCap = "round";
+            sigX.strokeStyle = "#0f172a"; sigX.lineWidth = 4; sigX.lineCap = "round";
             const getP = (e) => { const r = sigC.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
             const s = (e) => { drawing=true; const p=getP(e); sigX.beginPath(); sigX.moveTo(p.x, p.y); };
             const m = (e) => { if(!drawing) return; const p=getP(e); sigX.lineTo(p.x, p.y); sigX.stroke(); };
@@ -607,8 +608,8 @@
 
     <main id="app-container" class="max-w-6xl mx-auto px-4 py-6 md:py-10 print-container">
         <nav id="nav-bar" class="no-print flex flex-row justify-center gap-3 md:gap-6 mb-8 md:mb-12">
-            <button onclick="setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-4 md:p-5 px-6 md:px-12 rounded-2xl md:rounded-3xl font-black shadow-sm border border-slate-200 hover:bg-slate-50 text-sm md:text-base">📋 工單總表</button>
-            <button onclick="setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-4 md:p-5 px-6 md:px-12 rounded-2xl md:rounded-3xl font-black shadow-xl hover:bg-orange-600 text-sm md:text-base">＋ 建立新案</button>
+            <button onclick="setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-4 md:p-5 px-6 md:px-12 rounded-2xl md:rounded-3xl font-black shadow-sm border border-slate-200 hover:bg-slate-50 text-sm md:text-base transition-all">📋 工單總表</button>
+            <button onclick="setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-4 md:p-5 px-6 md:px-12 rounded-2xl md:rounded-3xl font-black shadow-xl hover:bg-orange-600 text-sm md:text-base transition-all">＋ 建立新案</button>
         </nav>
 
         <section id="mode-history" class="hidden"></section>
