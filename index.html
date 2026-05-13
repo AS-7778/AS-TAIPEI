@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AS TAIPEI 雲端美研系統 v11.3</title>
+    <title>AS TAIPEI 雲端美研系統 v11.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary-orange: #f97316; }
+        :root { --primary-orange: #f97316; --deep-slate: #0f172a; }
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #0f172a; -webkit-tap-highlight-color: transparent; }
         .signature-canvas { border: 2px solid #e2e8f0; background-color: #fff; touch-action: none; cursor: crosshair; border-radius: 16px; }
         
@@ -21,21 +21,44 @@
 
         .print-only { display: none; }
         @media print {
+            @page { size: A4; margin: 10mm; }
             .no-print { display: none !important; }
             .print-only { display: block; }
-            .print-container { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+            .print-container { 
+                width: 100% !important; 
+                max-width: 100% !important; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                border: none !important; 
+                box-shadow: none !important;
+                background-color: white !important;
+            }
             body { background-color: white !important; }
             .print-report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            .print-report-table th, .print-report-table td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; }
-            .print-report-table th { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
+            .print-report-table th, .print-report-table td { border: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; line-height: 1.4; }
+            .print-report-table th { background-color: #f8fafc !important; color: #0f172a !important; -webkit-print-color-adjust: exact; }
+            .page-break { page-break-after: always; }
+            .bg-orange-500 { background-color: #f97316 !important; -webkit-print-color-adjust: exact; }
         }
-        .notice-card { border-left: 4px solid var(--primary-orange); padding-left: 1rem; }
+
+        .quote-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 8rem;
+            font-weight: 900;
+            color: rgba(249, 115, 22, 0.03);
+            pointer-events: none;
+            z-index: 0;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="min-h-screen">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const CAR_DATABASE = {
@@ -68,36 +91,23 @@
             "玻璃奈米撥水塗層", "輪框專屬保護層", "皮椅深層清潔養護", "其他"
         ];
 
-        let firebaseConfig;
-        try {
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-            } else {
-                firebaseConfig = {
-                    apiKey: "AIzaSyBEgWLZ4_1cCVswkKll6N4yW1O_xoTEGyg",
-                    authDomain: "as-taipei-1a211.firebaseapp.com",
-                    projectId: "as-taipei-1a211",
-                    storageBucket: "as-taipei-1a211.firebasestorage.app",
-                    messagingSenderId: "193808418904",
-                    appId: "1:193808418904:web:b58e1317b5447b4f44e22d"
-                };
-            }
-        } catch (e) {
-            console.error("Config Error:", e);
-        }
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEgWLZ4_1cCVswkKll6N4yW1O_xoTEGyg",
+            authDomain: "as-taipei-1a211.firebaseapp.com",
+            projectId: "as-taipei-1a211",
+            storageBucket: "as-taipei-1a211.firebasestorage.app",
+            messagingSenderId: "193808418904",
+            appId: "1:193808418904:web:b58e1317b5447b4f44e22d"
+        };
 
-        // 初始化 Firebase，增加錯誤保護防止網頁完全卡死
         let app, db, auth;
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
-        } catch (e) {
-            console.error("Firebase Init Error:", e);
-        }
+        } catch (e) { console.error("Firebase Init Error:", e); }
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'as-taipei-1a211';
-        
+        const appId = 'as-taipei-1a211';
         window.workOrders = [];
         window.currentMode = 'history';
         window.currentFormData = {};
@@ -105,44 +115,20 @@
 
         const startAuth = async () => {
             const statusEl = document.getElementById('online-status');
-            if (!auth) {
-                if (statusEl) statusEl.innerText = "● 配置缺失，僅能離線瀏覽";
-                return;
-            }
-
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
+                await signInAnonymously(auth);
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
-                        if (statusEl) statusEl.innerText = "● 雲端連線成功";
-                        const q = query(
-                            collection(db, 'artifacts', appId, 'public', 'data', 'workOrders'), 
-                            orderBy("updatedAt", "desc")
-                        );
-
+                        if (statusEl) statusEl.innerText = "● 雲端同步中";
+                        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'workOrders'), orderBy("updatedAt", "desc"));
                         onSnapshot(q, (snapshot) => {
-                            window.workOrders = snapshot.docs.map(doc => ({
-                                ...doc.data(),
-                                id: doc.id 
-                            }));
+                            window.workOrders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                             if (window.currentMode === 'history') window.renderHistoryMode();
-                        }, (error) => {
-                            console.error("Firestore Error:", error);
-                            if (statusEl) statusEl.innerText = "● 權限不足或規則錯誤";
-                        });
-                    } else {
-                        if (statusEl) statusEl.innerText = "● 正在驗證身分...";
+                            if (statusEl) statusEl.innerText = "● 雲端連線正常";
+                        }, (error) => { if (statusEl) statusEl.innerText = "● 連線權限異常"; });
                     }
                 });
-            } catch (err) {
-                console.error("Auth Fail:", err);
-                if (statusEl) statusEl.innerText = "● 連線失敗：請檢查 API Key 或網域授權";
-            }
+            } catch (err) { if (statusEl) statusEl.innerText = "● 離線模式"; }
         };
 
         window.calculateOrderTotal = (o) => {
@@ -157,29 +143,11 @@
             const el = document.getElementById('ui-message');
             const txt = document.getElementById('ui-message-text');
             if (!el || !txt) return;
-            txt.innerText = text;
-            el.classList.remove('hidden');
+            txt.innerText = text; el.classList.remove('hidden');
             setTimeout(() => el.classList.add('hidden'), 3000);
         };
 
-        window.deleteFromCloud = (id) => {
-            window.pendingDeleteId = id;
-            const modal = document.getElementById('custom-confirm-modal');
-            if (modal) modal.classList.remove('hidden');
-        };
-
-        window.executeDelete = async () => {
-            const id = window.pendingDeleteId;
-            const modal = document.getElementById('custom-confirm-modal');
-            if (modal) modal.classList.add('hidden');
-            if (!id || !auth.currentUser) return;
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', id));
-                window.showMessage("工單已成功刪除");
-            } catch (e) {
-                window.showMessage("刪除失敗");
-            }
-        };
+        window.handlePrint = () => { window.focus(); setTimeout(() => { window.print(); }, 500); };
 
         window.setMode = (mode, data = null, isNew = false) => {
             window.currentMode = mode;
@@ -189,167 +157,223 @@
                     id: `AS-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${(window.workOrders.length+1).toString().padStart(3,'0')}`,
                     receiveDate: today, deliveryDate: today,
                     customerName: '', customerPhone: '', licensePlate: '',
-                    carBrand: 'Audi 奧迪', carBrandCustom: '',
-                    carModel: 'RS6/RS7', carModelCustom: '',
-                    salesPerson: 'Audi', salesPersonCustom: '',
-                    paymentMethod: '現金', needsInvoice: false,
+                    carBrand: 'Audi 奧迪', carBrandCustom: '', carModel: 'RS6/RS7', carModelCustom: '',
+                    salesPerson: 'Audi', salesPersonCustom: '', paymentMethod: '現金', needsInvoice: false,
                     serviceItems: [{ name: '全車頂級車漆保護膜 (PPF)', nameCustom: '', price: 0 }],
                     notes: '', isSigned: false, signatureImage: null
                 };
-            } else if (data) { 
-                window.currentFormData = JSON.parse(JSON.stringify(data)); 
-            }
-            
+            } else if (data) { window.currentFormData = JSON.parse(JSON.stringify(data)); }
             ['history', 'form', 'quote', 'printPreview'].forEach(m => {
                 const el = document.getElementById(`mode-${m}`);
                 if (el) el.classList.add('hidden');
             });
-
             if (mode === 'history') window.renderHistoryMode();
             else if (mode === 'form') window.renderFormMode();
             else if (mode === 'quote') window.renderQuoteMode();
             else if (mode === 'printPreview') window.renderPrintPreview();
-            
             const target = document.getElementById(`mode-${mode}`);
             if (target) target.classList.remove('hidden');
             window.scrollTo(0,0);
-        };
-
-        window.renderHistoryMode = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
-            const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
-
-            document.getElementById('mode-history').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 no-print">
-                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm">
-                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">選擇查詢月份</p>
-                        <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="w-full p-3 border-2 rounded-xl font-bold focus:border-orange-500 outline-none">
-                    </div>
-                    <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl text-white">
-                        <p class="text-[10px] font-black text-slate-400 mb-1">案件量</p>
-                        <p class="text-4xl font-black text-orange-500">${filtered.length} <span class="text-sm text-white">件</span></p>
-                    </div>
-                    <div class="bg-orange-500 p-6 rounded-[2rem] shadow-xl text-white">
-                        <p class="text-[10px] font-black text-white/70 mb-1">總營收 (含稅)</p>
-                        <p class="text-3xl font-black">NT$ ${monthlyRevenue.toLocaleString()}</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm flex flex-col justify-center gap-2">
-                        <button onclick="window.exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all">
-                            📊 匯出 Excel
-                        </button>
-                        <button onclick="window.setMode('printPreview')" class="bg-slate-700 hover:bg-slate-800 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all">
-                            🖨️ 列印報表預覽
-                        </button>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden no-print">
-                    <table class="w-full text-left responsive-table">
-                        <thead class="bg-slate-50 border-b">
-                            <tr>
-                                <th class="p-6 text-xs font-bold text-slate-400">單號 / 日期</th>
-                                <th class="p-6 text-xs font-bold text-slate-400">客戶 / 車輛</th>
-                                <th class="p-6 text-xs font-bold text-slate-400">明細 / 總額</th>
-                                <th class="p-6 text-right text-xs font-bold text-slate-400">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            ${filtered.length === 0 ? '<tr><td colspan="4" class="p-10 text-center text-slate-400 font-bold">本月尚無工單紀錄</td></tr>' : filtered.map(o => {
-                                const total = window.calculateOrderTotal(o);
-                                return `
-                                <tr class="hover:bg-slate-50 transition-colors">
-                                    <td class="p-6 align-top">
-                                        <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">工單編號</div>
-                                        <span class="font-black text-orange-600 text-lg">${o.id}</span><br>
-                                        <span class="text-xs text-slate-400 font-medium">接車：${o.receiveDate}</span>
-                                    </td>
-                                    <td class="p-6 align-top">
-                                        <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">客戶與車輛</div>
-                                        <div class="flex items-center gap-1 font-black text-slate-800 text-lg">
-                                            ${o.customerName} <span class="text-slate-400 text-sm font-normal">(${o.customerPhone || '-'})</span>
-                                        </div>
-                                        <div class="font-black text-slate-700 uppercase tracking-tight text-xl mb-1">${o.licensePlate}</div>
-                                        <div class="text-xs text-slate-500 font-bold">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand} ${o.carModel === '其他' ? o.carModelCustom : o.carModel}</div>
-                                    </td>
-                                    <td class="p-6 align-top">
-                                        <div class="md:hidden text-[10px] text-slate-400 font-bold uppercase mb-1">金額明細</div>
-                                        <div class="text-[11px] text-slate-600 space-y-1 mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                            ${o.serviceItems.map(it => `<div>• ${it.name === '其他' ? it.nameCustom : it.name} <span class="text-slate-400 text-[10px]">($${(it.price || 0).toLocaleString()})</span></div>`).join('')}
-                                        </div>
-                                        <div class="flex items-baseline gap-2">
-                                            <span class="font-black text-slate-900 text-2xl">NT$ ${total.toLocaleString()}</span>
-                                            <span class="text-[10px] text-slate-400 font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded">(${o.paymentMethod})</span>
-                                        </div>
-                                    </td>
-                                    <td class="p-6 text-right align-top">
-                                        <div class="flex justify-end items-center gap-4 mt-2">
-                                            <button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 hover:bg-slate-800 text-white text-sm py-2.5 px-6 rounded-xl font-black shadow-md transition-all">查看</button>
-                                            <button onclick="window.deleteFromCloud('${o.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 text-2xl font-light">✕</button>
-                                        </div>
-                                    </td>
-                                </tr>`;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
         };
 
         window.renderPrintPreview = () => {
             const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
             const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
             const container = document.getElementById('mode-printPreview');
+            container.innerHTML = `
+                <div class="no-print mb-6 flex flex-col md:flex-row justify-between items-center bg-orange-50 p-6 rounded-3xl border border-orange-200 gap-4">
+                    <div class="flex items-center gap-3"><div class="bg-orange-500 text-white p-2 rounded-xl">📊</div><div><p class="text-orange-950 font-black text-lg">月度營收報表預覽</p><p class="text-xs text-orange-700 font-bold">當月共有 ${filtered.length} 筆案件記錄</p></div></div>
+                    <div class="flex gap-3 w-full md:w-auto"><button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white border-2 border-slate-200 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-50">返回</button><button onclick="window.handlePrint()" class="flex-1 md:flex-none bg-orange-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-700">立即列印</button></div>
+                </div>
+                <div class="print-container bg-white p-8 md:p-12 shadow-2xl border mx-auto mb-10" style="width: 100%; max-width: 210mm;">
+                    <div class="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8">
+                        <div><h1 class="text-3xl font-black tracking-tighter text-slate-950 mb-1">AS TAIPEI 月度營收明細表</h1><p class="text-slate-500 font-bold text-xs uppercase tracking-widest">Premium Paint Protection Management System</p></div>
+                        <div class="text-right"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">報表月份</p><p class="text-2xl font-black text-slate-900 leading-none">${window.currentFilterMonth}</p><p class="text-[9px] text-slate-400 mt-2 font-medium">製表日期：${new Date().toLocaleDateString()}</p></div>
+                    </div>
+                    <table class="print-report-table">
+                        <thead><tr><th style="width: 12%">單號</th><th style="width: 12%">日期</th><th style="width: 18%">客戶資訊</th><th style="width: 18%">車輛資訊</th><th style="width: 28%">施工項目明細</th><th style="width: 12%; text-align: right;">總計(含稅)</th></tr></thead>
+                        <tbody>${filtered.map(o => {
+                            const itemsText = o.serviceItems.map(it => `• ${it.name === '其他' ? it.nameCustom : it.name}`).join('<br>');
+                            return `<tr><td class="font-bold">${o.id}</td><td>${o.receiveDate}</td><td class="font-bold">${o.customerName}<br><span class="text-[9px] font-normal text-slate-500">${o.customerPhone}</span></td><td class="font-black">${o.licensePlate}<br><span class="text-[9px] font-normal text-slate-500">${o.carBrand}</span></td><td class="text-[10px]">${itemsText}</td><td class="text-right font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td></tr>`
+                        }).join('')}</tbody>
+                        <tfoot><tr style="background-color: #f8fafc;"><td colspan="5" style="text-align: right; font-weight: 900; font-size: 13px; padding: 15px;">本月合計營收額</td><td style="text-align: right; font-weight: 900; font-size: 16px; color: #ea580c; padding: 15px;">NT$ ${monthlyRevenue.toLocaleString()}</td></tr></tfoot>
+                    </table>
+                </div>
+            `;
+        };
+
+        window.renderQuoteMode = () => {
+            const d = window.currentFormData;
+            const container = document.getElementById('mode-quote');
+            const subtotal = d.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
+            const hasTax = d.needsInvoice || d.paymentMethod === '信用卡';
+            const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
+            const total = subtotal + tax;
+
+            const brandDisplay = d.carBrand === '其他' ? d.carBrandCustom : d.carBrand;
+            const modelDisplay = d.carModel === '其他' ? d.carModelCustom : d.carModel;
+            const salesDisplay = d.salesPerson === '其他' ? d.salesPersonCustom : d.salesPerson;
 
             container.innerHTML = `
-                <div class="no-print mb-6 flex flex-col md:flex-row justify-between items-center bg-orange-100 p-4 rounded-2xl border border-orange-200 gap-4">
-                    <div>
-                        <p class="text-orange-800 font-bold">🖨️ 列印預覽模式</p>
-                        <p class="text-xs text-orange-600">請確認內容無誤後點擊右側按鈕列印</p>
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-3 bg-white p-6 md:p-12 rounded-[3rem] shadow-2xl border-t-[16px] border-orange-500 print-container relative overflow-hidden">
+                        <div class="quote-watermark">AS TAIPEI</div>
+                        
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-slate-100 pb-8 mb-10 gap-6 relative z-10">
+                            <div>
+                                <h1 class="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter">AS TAIPEI</h1>
+                                <p class="text-[11px] font-black text-orange-600 mt-2 uppercase tracking-[0.2em]">Premium Paint Protection Film Specialist</p>
+                                <p class="text-[10px] text-slate-400 mt-1 font-bold">台北市內湖區民權東路六段15巷35號1樓 | 02-2790-9077</p>
+                            </div>
+                            <div class="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100 text-right">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">施工服務工單 / 報價單</p>
+                                <p class="text-2xl font-black text-slate-900 font-mono tracking-tighter">${d.id}</p>
+                                <p class="text-[10px] text-slate-400 mt-2">建立日期：${new Date().toLocaleDateString()}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-y-10 gap-x-6 mb-10 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 relative z-10">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">客戶姓名</p>
+                                <p class="font-black text-lg text-slate-900">${d.customerName || '-'}</p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">聯絡電話</p>
+                                <p class="font-black text-lg text-slate-900">${d.customerPhone || '-'}</p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">施工車輛</p>
+                                <div class="flex items-center gap-3">
+                                    <p class="font-black text-lg text-slate-900">${brandDisplay} ${modelDisplay}</p>
+                                    <span class="bg-slate-900 text-white px-2 py-1 rounded-lg text-[11px] font-mono font-black uppercase tracking-wider">${d.licensePlate || 'N/A'}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">接待人員</p>
+                                <p class="font-black text-lg text-slate-800">${salesDisplay}</p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">接車 / 交車日期</p>
+                                <p class="font-black text-base text-slate-800 whitespace-nowrap">${d.receiveDate} <span class="text-slate-300 mx-1 text-sm">→</span> <span class="text-orange-600">${d.deliveryDate}</span></p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">付款方式</p>
+                                <p class="font-black text-lg text-slate-800">${d.paymentMethod} <span class="text-[10px] font-bold text-slate-400">${hasTax?'(含稅 5%)':''}</span></p>
+                            </div>
+                        </div>
+
+                        <div class="overflow-hidden rounded-[2rem] border-2 border-slate-100 mb-10 shadow-sm relative z-10">
+                            <table class="w-full">
+                                <thead class="bg-slate-900 text-white">
+                                    <tr><th class="p-5 text-left text-xs font-black uppercase tracking-widest">施工服務項目明細</th><th class="p-5 text-right text-xs font-black uppercase tracking-widest">金額 (TWD)</th></tr>
+                                </thead>
+                                <tbody class="divide-y-2 divide-slate-50 font-bold text-slate-700">
+                                    ${d.serviceItems.map(item => `<tr><td class="p-5 text-sm">${item.name === '其他' ? item.nameCustom : item.name}</td><td class="p-5 text-right font-black font-mono text-base">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
+                                    ${tax > 0 ? `<tr class="bg-slate-50"><td class="p-5 text-slate-500 text-xs italic font-medium">稅額 / 手續費 (5%)</td><td class="p-5 text-right font-black text-slate-500 text-sm">NT$ ${tax.toLocaleString()}</td></tr>` : ''}
+                                </tbody>
+                                <tfoot class="bg-white border-t-4 border-slate-900">
+                                    <tr><td class="p-6 text-right font-black text-base uppercase tracking-widest text-slate-900">應付金額總計 (Total Amount)</td><td class="p-6 text-right font-black text-4xl tracking-tighter text-slate-950">NT$ ${total.toLocaleString()}</td></tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="flex flex-col gap-10 text-[14px] leading-relaxed border-t-2 border-slate-100 pt-10 text-slate-600 font-medium relative z-10">
+                            
+                            <div class="pl-6 border-l-8 border-orange-500">
+                                <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">⚠️ 施工品質驗收標準</h4>
+                                <ul class="space-y-1.5 list-disc list-inside text-slate-700 font-bold">
+                                    <li>車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。</li>
+                                    <li>微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</li>
+                                    <li>在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業標準。</li>
+                                </ul>
+                            </div>
+
+                            <div class="pl-6 border-l-8 border-blue-500">
+                                <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🛡️ 保護膜養護須知</h4>
+                                <ul class="space-y-1.5 text-slate-700 font-bold">
+                                    <li>1. 48小時嚴禁洗車：施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</li>
+                                    <li>2. 洗車務必擦乾：洗車後請確實將水分擦乾，嚴禁高壓水槍近距離直噴膜面邊緣。</li>
+                                    <li>3. 初期霧感現象：安裝後若有微霧感屬正常過程，視天候約 10 天後恢復高亮。</li>
+                                    <li>4. 專業保養建議：建議每 1-2 個月回廠養護，可延長膜料壽命與撥水效果。</li>
+                                </ul>
+                            </div>
+
+                            <div class="pl-6 border-l-8 border-red-500">
+                                <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🚫 不在保固服務範圍之事項</h4>
+                                <ul class="space-y-1.5 text-slate-700 font-bold">
+                                    <li>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</li>
+                                    <li>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</li>
+                                    <li>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</li>
+                                    <li>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</li>
+                                    <li>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</li>
+                                    <li>6. 未經授權之加工：非本公司授權之第三方加工或撕除膜料者。</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 shadow-sm mt-4">
+                                <h4 class="font-black text-slate-950 mb-6 text-center tracking-widest uppercase text-xs">客戶確認簽名 (Client Confirmation)</h4>
+                                <div class="bg-slate-50 rounded-2xl border-2 border-slate-200 h-40 overflow-hidden relative shadow-inner">
+                                    ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto object-contain">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
+                                </div>
+                                <div class="flex gap-2 mt-4 no-print">
+                                    ${!d.isSigned ? `<button onclick="window.saveSig()" class="flex-[2] bg-slate-950 text-white py-3 rounded-xl font-black text-sm shadow-lg">確認簽名</button>` : ''}
+                                    <button onclick="window.clearSig()" class="flex-1 bg-white border border-slate-200 text-slate-400 py-3 rounded-xl font-bold text-xs hover:bg-slate-50">重置</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-16 pt-10 border-t-2 border-slate-950 border-opacity-5 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
+                             <div class="flex flex-col items-center">
+                                 <div class="w-32 h-32 border-2 border-orange-100 rounded-full flex items-center justify-center mb-4 relative">
+                                    <div class="text-[9px] font-black text-orange-200 transform -rotate-12">AS TAIPEI OFFICIAL SEAL</div>
+                                    <div class="absolute inset-0 border-4 border-orange-50 rounded-full m-1"></div>
+                                 </div>
+                                 <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">公司用印章</p>
+                             </div>
+                             <div class="text-right flex-grow">
+                                 <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">服務代表簽署</p>
+                                 <p class="text-4xl font-black italic text-slate-950 tracking-tighter">${salesDisplay}</p>
+                             </div>
+                        </div>
                     </div>
-                    <div class="flex gap-3 w-full md:w-auto">
-                        <button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white border border-slate-300 px-6 py-2 rounded-xl font-bold text-sm">返回</button>
-                        <button onclick="window.print()" class="flex-1 md:flex-none bg-orange-600 text-white px-8 py-2 rounded-xl font-black text-sm shadow-lg">確認並列印</button>
+
+                    <div class="no-print space-y-4">
+                        <button onclick="window.saveToCloud(window.currentFormData)" class="w-full bg-orange-500 text-white py-6 rounded-[2.5rem] font-black text-xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">✅ 儲存雲端工單</button>
+                        <button onclick="window.handlePrint()" class="w-full bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl shadow-xl active:scale-95 transition-all">🖨️ 列印此單據</button>
+                        <button onclick="window.setMode('form')" class="w-full bg-white text-slate-500 py-4 rounded-2xl font-bold border-2 hover:bg-slate-50 transition-all">返回修改內容</button>
                     </div>
                 </div>
+            `;
+            if(!d.isSigned) setTimeout(initSig, 150);
+        };
 
-                <div class="print-container bg-white p-5 md:p-10 shadow-2xl border mx-auto mb-10 overflow-x-auto" style="width: 100%; max-width: 210mm; min-height: 297mm;">
-                    <div class="flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-6">
-                        <div>
-                            <h1 class="text-3xl font-black tracking-tighter text-slate-900">AS TAIPEI 月度營收明細表</h1>
-                            <p class="text-slate-500 font-bold text-sm">Premium Paint Protection Center</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] font-black text-slate-400 uppercase">報表月份</p>
-                            <p class="text-xl font-black">${window.currentFilterMonth}</p>
-                        </div>
+        /* ... 其他既有邏輯: renderHistoryMode, renderFormMode, toggleCustomInput, fillModels, renderItems, saveToCloud, deleteFromCloud, exportExcel 等完全保留 ... */
+        window.renderHistoryMode = () => {
+            const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
+            const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
+            document.getElementById('mode-history').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 no-print">
+                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">選擇查詢月份</p>
+                        <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="w-full p-3 border-2 rounded-xl font-bold focus:border-orange-500 outline-none">
                     </div>
-                    <table class="print-report-table w-full">
-                        <thead>
-                            <tr class="bg-slate-100">
-                                <th class="border p-2 text-left text-xs font-bold">單號</th>
-                                <th class="border p-2 text-left text-xs font-bold">接車日期</th>
-                                <th class="border p-2 text-left text-xs font-bold">客戶/電話</th>
-                                <th class="border p-2 text-left text-xs font-bold">車牌/品牌</th>
-                                <th class="border p-2 text-right text-xs font-bold">總金額 (含稅)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${filtered.map(o => `
-                                <tr>
-                                    <td class="border p-2 text-xs font-bold">${o.id}</td>
-                                    <td class="border p-2 text-xs">${o.receiveDate}</td>
-                                    <td class="border p-2 text-xs font-bold text-slate-900">${o.customerName}<br><span class="text-slate-400 font-normal text-[9px]">${o.customerPhone}</span></td>
-                                    <td class="border p-2 text-xs font-black">${o.licensePlate}<br><span class="text-[10px] font-normal text-slate-500">${o.carBrand === '其他' ? o.carBrandCustom : o.carBrand}</span></td>
-                                    <td class="border p-2 text-right text-xs font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td>
-                                </tr>
-                            `).join('')}
+                    <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl text-white"><p class="text-[10px] font-black text-slate-400 mb-1">案件量</p><p class="text-4xl font-black text-orange-500">${filtered.length} <span class="text-sm text-white">件</span></p></div>
+                    <div class="bg-orange-500 p-6 rounded-[2rem] shadow-xl text-white"><p class="text-[10px] font-black text-white/70 mb-1">總營收 (含稅)</p><p class="text-3xl font-black">NT$ ${monthlyRevenue.toLocaleString()}</p></div>
+                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm flex flex-col justify-center gap-2">
+                        <button onclick="window.exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all">📊 匯出 Excel</button>
+                        <button onclick="window.setMode('printPreview')" class="bg-slate-700 hover:bg-slate-800 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all">🖨️ 列印報表預覽</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden no-print">
+                    <table class="w-full text-left responsive-table">
+                        <thead class="bg-slate-50 border-b"><tr><th class="p-6 text-xs font-bold text-slate-400">單號 / 日期</th><th class="p-6 text-xs font-bold text-slate-400">客戶 / 車輛</th><th class="p-6 text-xs font-bold text-slate-400">明細 / 總額</th><th class="p-6 text-right text-xs font-bold text-slate-400">操作</th></tr></thead>
+                        <tbody class="divide-y">
+                            ${filtered.length === 0 ? '<tr><td colspan="4" class="p-10 text-center text-slate-400 font-bold">本月尚無工單紀錄</td></tr>' : filtered.map(o => {
+                                const total = window.calculateOrderTotal(o);
+                                return `<tr class="hover:bg-slate-50 transition-colors"><td class="p-6 align-top"><span class="font-black text-orange-600 text-lg">${o.id}</span><br><span class="text-xs text-slate-400 font-medium">${o.receiveDate}</span></td><td class="p-6 align-top"><div class="font-black text-slate-800 text-lg">${o.customerName} <span class="text-slate-400 text-sm font-normal">(${o.customerPhone || '-'})</span></div><div class="font-black text-slate-700 uppercase text-xl">${o.licensePlate}</div><div class="text-xs text-slate-500 font-bold">${o.carBrand} ${o.carModel}</div></td><td class="p-6 align-top"><div class="text-[11px] text-slate-600 space-y-1 mb-2 bg-slate-50 p-3 rounded-xl border border-slate-100">${o.serviceItems.map(it => `• ${it.name === '其他' ? it.nameCustom : it.name}`).join('')}</div><div class="flex items-baseline gap-2"><span class="font-black text-slate-900 text-2xl">NT$ ${total.toLocaleString()}</span></div></td><td class="p-6 text-right align-top"><div class="flex justify-end items-center gap-4 mt-2"><button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 hover:bg-slate-800 text-white text-sm py-2.5 px-6 rounded-xl font-black transition-all">查看</button><button onclick="window.deleteFromCloud('${o.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 text-2xl font-light">✕</button></div></td></tr>`;
+                            }).join('')}
                         </tbody>
-                        <tfoot>
-                            <tr class="bg-slate-50">
-                                <td colspan="4" class="border p-3 text-right font-black text-sm">本月合計總營收</td>
-                                <td class="border p-3 text-right font-black text-lg text-orange-600">NT$ ${monthlyRevenue.toLocaleString()}</td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             `;
@@ -364,45 +388,20 @@
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">客戶姓名</label><input type="text" id="f-customerName" value="${window.currentFormData.customerName}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none"></div>
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">聯絡電話</label><input type="tel" id="f-customerPhone" value="${window.currentFormData.customerPhone}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none"></div>
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">車牌號碼</label><input type="text" id="f-licensePlate" value="${window.currentFormData.licensePlate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-black uppercase focus:ring-2 ring-orange-500 outline-none"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">結帳方式</label>
-                            <select id="f-paymentMethod" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none appearance-none">
-                                ${["現金", "信用卡", "匯款"].map(p => `<option value="${p}" ${window.currentFormData.paymentMethod===p?'selected':''}>${p}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">汽車品牌</label>
-                            <select id="f-carBrand" onchange="window.toggleCustomInput('carBrand', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">
-                                ${Object.keys(CAR_DATABASE).map(b => `<option value="${b}" ${window.currentFormData.carBrand===b?'selected':''}>${b}</option>`).join('')}
-                            </select>
-                            <input type="text" id="f-carBrandCustom" value="${window.currentFormData.carBrandCustom||''}" placeholder="手寫輸入品牌" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.carBrand==='其他'?'':'hidden'}">
-                        </div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">型號</label>
-                            <select id="f-carModel" onchange="window.toggleCustomInput('carModel', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none"></select>
-                            <input type="text" id="f-carModelCustom" value="${window.currentFormData.carModelCustom||''}" placeholder="手寫輸入型號" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.carModel==='其他'?'':'hidden'}">
-                        </div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">接待人員</label>
-                            <select id="f-salesPerson" onchange="window.toggleCustomInput('salesPerson', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">
-                                ${SALES_LIST.map(s => `<option value="${s}" ${window.currentFormData.salesPerson===s?'selected':''}>${s}</option>`).join('')}
-                            </select>
-                            <input type="text" id="f-salesPersonCustom" value="${window.currentFormData.salesPersonCustom||''}" placeholder="輸入接待名字" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.salesPerson==='其他'?'':'hidden'}">
-                        </div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">結帳方式</label><select id="f-paymentMethod" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">${["現金", "信用卡", "匯款"].map(p => `<option value="${p}" ${window.currentFormData.paymentMethod===p?'selected':''}>${p}</option>`).join('')}</select></div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">汽車品牌</label><select id="f-carBrand" onchange="window.toggleCustomInput('carBrand', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">${Object.keys(CAR_DATABASE).map(b => `<option value="${b}" ${window.currentFormData.carBrand===b?'selected':''}>${b}</option>`).join('')}</select><input type="text" id="f-carBrandCustom" value="${window.currentFormData.carBrandCustom||''}" placeholder="手寫輸入品牌" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.carBrand==='其他'?'':'hidden'}"></div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">型號</label><select id="f-carModel" onchange="window.toggleCustomInput('carModel', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none"></select><input type="text" id="f-carModelCustom" value="${window.currentFormData.carModelCustom||''}" placeholder="手寫輸入型號" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.carModel==='其他'?'':'hidden'}"></div>
+                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">接待人員</label><select id="f-salesPerson" onchange="window.toggleCustomInput('salesPerson', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">${SALES_LIST.map(s => `<option value="${s}" ${window.currentFormData.salesPerson===s?'selected':''}>${s}</option>`).join('')}</select><input type="text" id="f-salesPersonCustom" value="${window.currentFormData.salesPersonCustom||''}" placeholder="輸入接待名字" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.salesPerson==='其他'?'':'hidden'}"></div>
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">接車日期</label><input type="date" id="f-receiveDate" value="${window.currentFormData.receiveDate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
                         <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">交車日期</label><input type="date" id="f-deliveryDate" value="${window.currentFormData.deliveryDate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
-                        <div class="flex items-center gap-4 p-4 bg-slate-50 border rounded-2xl mt-4 cursor-pointer" onclick="const ck=document.getElementById('f-needsInvoice');ck.checked=!ck.checked">
-                            <input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 rounded border-slate-300 text-orange-500 focus:ring-orange-500" onclick="event.stopPropagation()">
-                            <label class="font-black text-slate-700 select-none">需開發票 (+5%)</label>
-                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-slate-50 border rounded-2xl mt-4 cursor-pointer" onclick="const ck=document.getElementById('f-needsInvoice');ck.checked=!ck.checked"><input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 rounded border-slate-300 text-orange-500 focus:ring-orange-500" onclick="event.stopPropagation()"><label class="font-black text-slate-700 select-none">需開發票 (+5%)</label></div>
                     </div>
-                    <div class="bg-slate-50 p-6 rounded-[2.5rem] border">
-                        <h3 class="font-black mb-6 text-xl text-slate-900">服務項目明細</h3>
-                        <div id="items-container" class="space-y-4"></div>
-                        <button type="button" onclick="window.addItem()" class="mt-6 w-full py-5 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button>
-                    </div>
-                    <button id="btn-next" class="w-full bg-slate-950 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-[1.01] active:scale-95 transition-all">預覽報價並進行簽署</button>
+                    <div class="bg-slate-50 p-6 rounded-[2.5rem] border"><h3 class="font-black mb-6 text-xl text-slate-900">服務項目明細</h3><div id="items-container" class="space-y-4"></div><button type="button" onclick="window.addItem()" class="mt-6 w-full py-5 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button></div>
+                    <button id="btn-next" class="w-full bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl transition-all">確認內容並預覽單據</button>
                 </div>
             `;
             window.fillModels(window.currentFormData.carBrand);
             window.renderItems();
-
             document.getElementById('btn-next').onclick = () => {
                 Object.assign(window.currentFormData, {
                     customerName: document.getElementById('f-customerName').value,
@@ -423,169 +422,13 @@
             };
         };
 
-        window.toggleCustomInput = (field, val) => {
-            const input = document.getElementById(`f-${field}Custom`);
-            if (!input) return;
-            if (val === '其他') input.classList.remove('hidden'); else input.classList.add('hidden');
-            if (field === 'carBrand') window.fillModels(val);
-        };
-
-        window.fillModels = (brand) => {
-            const sel = document.getElementById('f-carModel'); if(!sel) return;
-            const models = CAR_DATABASE[brand] || [];
-            sel.innerHTML = models.map(m => `<option value="${m}" ${window.currentFormData.carModel===m?'selected':''}>${m}</option>`).join('') + `<option value="其他">其他</option>`;
-            window.toggleCustomInput('carModel', sel.value);
-        };
-
-        window.renderItems = () => {
-            document.getElementById('items-container').innerHTML = window.currentFormData.serviceItems.map((it, i) => `
-                <div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl border shadow-sm relative">
-                    <div class="flex-grow space-y-2">
-                        <select onchange="window.toggleItemCustom(${i}, this.value)" class="w-full p-4 bg-slate-50 border rounded-xl font-bold appearance-none">
-                            ${SERVICE_TEMPLATES.map(t => `<option value="${t}" ${it.name===t?'selected':''}>${t}</option>`).join('')}
-                        </select>
-                        <input type="text" id="it-custom-${i}" value="${it.nameCustom||''}" placeholder="手寫輸入服務項目" oninput="window.updItem(${i}, 'nameCustom', this.value)" class="w-full p-4 bg-orange-50 border-orange-100 border rounded-xl font-bold ${it.name==='其他'?'':'hidden'}">
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-bold text-slate-400">NT$</span>
-                        <input type="number" value="${it.price}" placeholder="金額" oninput="window.updItem(${i}, 'price', this.value)" class="flex-grow md:w-40 p-4 bg-slate-50 border rounded-xl font-black text-right text-orange-600">
-                        <button onclick="window.removeItem(${i})" class="text-slate-300 hover:text-red-500 p-2 text-2xl transition-colors">✕</button>
-                    </div>
-                </div>
-            `).join('');
-        };
-
+        window.toggleCustomInput = (field, val) => { const input = document.getElementById(`f-${field}Custom`); if (input) { if (val === '其他') input.classList.remove('hidden'); else input.classList.add('hidden'); } if (field === 'carBrand') window.fillModels(val); };
+        window.fillModels = (brand) => { const sel = document.getElementById('f-carModel'); if(!sel) return; const models = CAR_DATABASE[brand] || []; sel.innerHTML = models.map(m => `<option value="${m}" ${window.currentFormData.carModel===m?'selected':''}>${m}</option>`).join('') + `<option value="其他">其他</option>`; window.toggleCustomInput('carModel', sel.value); };
+        window.renderItems = () => { document.getElementById('items-container').innerHTML = window.currentFormData.serviceItems.map((it, i) => `<div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl border shadow-sm relative"><div class="flex-grow space-y-2"><select onchange="window.toggleItemCustom(${i}, this.value)" class="w-full p-4 bg-slate-50 border rounded-xl font-bold appearance-none">${SERVICE_TEMPLATES.map(t => `<option value="${t}" ${it.name===t?'selected':''}>${t}</option>`).join('')}</select><input type="text" id="it-custom-${i}" value="${it.nameCustom||''}" placeholder="手寫輸入服務項目" oninput="window.updItem(${i}, 'nameCustom', this.value)" class="w-full p-4 bg-orange-50 border-orange-100 border rounded-xl font-bold ${it.name==='其他'?'':'hidden'}"></div><div class="flex items-center gap-3"><span class="text-xs font-bold text-slate-400">NT$</span><input type="number" value="${it.price}" placeholder="金額" oninput="window.updItem(${i}, 'price', this.value)" class="flex-grow md:w-40 p-4 bg-slate-50 border rounded-xl font-black text-right text-orange-600"><button onclick="window.removeItem(${i})" class="text-slate-300 hover:text-red-500 p-2 text-2xl">✕</button></div></div>`).join(''); };
         window.toggleItemCustom = (i, val) => { window.currentFormData.serviceItems[i].name = val; window.renderItems(); };
         window.updItem = (i, k, v) => { window.currentFormData.serviceItems[i][k] = (k==='price' ? parseInt(v)||0 : v); };
         window.addItem = () => { window.currentFormData.serviceItems.push({name:'其他', nameCustom:'', price:0}); window.renderItems(); };
         window.removeItem = (i) => { window.currentFormData.serviceItems.splice(i,1); window.renderItems(); };
-
-        window.renderQuoteMode = () => {
-            const d = window.currentFormData;
-            const container = document.getElementById('mode-quote');
-            const subtotal = d.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-            const hasTax = d.needsInvoice || d.paymentMethod === '信用卡';
-            const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
-            const total = subtotal + tax;
-
-            const brandDisplay = d.carBrand === '其他' ? d.carBrandCustom : d.carBrand;
-            const modelDisplay = d.carModel === '其他' ? d.carModelCustom : d.carModel;
-            const salesDisplay = d.salesPerson === '其他' ? d.salesPersonCustom : d.salesPerson;
-
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div class="lg:col-span-3 bg-white p-6 md:p-12 rounded-[3.5rem] shadow-2xl border-t-[12px] border-orange-500 print-container">
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 pb-8 mb-10 gap-6">
-                            <div>
-                                <h1 class="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter">AS TAIPEI</h1>
-                                <p class="text-[10px] font-bold text-slate-400 italic mt-2 uppercase tracking-widest">Premium Paint Protection Film Center</p>
-                            </div>
-                            <div class="text-left md:text-right">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">工單編號</p>
-                                <p class="text-2xl font-black text-orange-600">${d.id}</p>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10 p-6 md:p-8 bg-slate-50 rounded-[2rem] border text-sm shadow-inner">
-                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">客戶</p><p class="font-black text-base text-slate-900">${d.customerName}</p></div>
-                            <div class="col-span-1"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">電話</p><p class="font-black text-base text-slate-900">${d.customerPhone}</p></div>
-                            <div class="col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase mb-1">車輛詳情</p><p class="font-black text-base text-slate-900">${brandDisplay} ${modelDisplay} <span class="bg-orange-500 text-white px-3 py-1 rounded-full text-[10px] ml-1 inline-block font-black">${d.licensePlate}</span></p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">接待人員</p><p class="font-black text-sm text-slate-900">${salesDisplay}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">接車日期</p><p class="font-bold text-sm text-slate-900">${d.receiveDate}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">交車日期</p><p class="font-bold text-sm text-orange-600">${d.deliveryDate}</p></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">結帳方式</p><p class="font-bold text-sm text-slate-900">${d.paymentMethod} ${hasTax?'(含 5%)':''}</p></div>
-                        </div>
-
-                        <div class="overflow-hidden rounded-[1.5rem] border mb-10 shadow-sm">
-                            <table class="w-full">
-                                <thead class="bg-slate-900 text-white"><tr><th class="p-5 text-left text-sm font-bold">服務項目</th><th class="p-5 text-right text-sm font-bold">金額</th></tr></thead>
-                                <tbody class="divide-y font-bold text-slate-700">
-                                    ${d.serviceItems.map(item => `<tr><td class="p-5 text-sm">${item.name === '其他' ? item.nameCustom : item.name}</td><td class="p-5 text-right font-black text-sm">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
-                                    ${tax > 0 ? `<tr class="bg-orange-50"><td class="p-5 text-orange-600 text-sm font-black">手續費 / 發票稅額 (5%)</td><td class="p-5 text-right font-black text-orange-600 text-sm">NT$ ${tax.toLocaleString()}</td></tr>` : ''}
-                                </tbody>
-                                <tfoot class="bg-slate-950 text-white">
-                                    <tr><td class="p-6 text-right font-black text-lg">應付總計</td><td class="p-6 text-right font-black text-2xl text-orange-500 tracking-tight">NT$ ${total.toLocaleString()}</td></tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <!-- 條款區塊：改為垂直堆疊排列 (根據圖片二) -->
-                        <div class="space-y-10 text-[14px] leading-relaxed border-t pt-10 text-slate-700 font-medium">
-                            
-                            <!-- 施工品質驗收標準 -->
-                            <div class="border-l-4 border-orange-500 pl-6">
-                                <h4 class="font-black text-lg text-slate-900 flex items-center gap-2 mb-4">
-                                    <span class="text-orange-500">⚠️</span> 施工品質驗收標準
-                                </h4>
-                                <div class="space-y-2">
-                                    <p>• 車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。</p>
-                                    <p>• 微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</p>
-                                    <p>• 在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業驗收標準。</p>
-                                </div>
-                            </div>
-
-                            <!-- 保護膜養護須知 -->
-                            <div class="border-l-4 border-blue-500 pl-6">
-                                <h4 class="font-black text-lg text-slate-900 flex items-center gap-2 mb-4">
-                                    <span class="text-blue-500">🛡️</span> 保護膜養護須知
-                                </h4>
-                                <div class="space-y-2">
-                                    <p>1. 48小時嚴禁洗車：施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</p>
-                                    <p>2. 洗車務必擦乾：洗車後請確實將水分擦乾，防止水垢產生。嚴禁高壓水槍近距離直噴膜面邊緣。</p>
-                                    <p>3. 初期霧感現象：安裝後若有微霧感屬水分蒸發正常過程，視天候約 10 天後恢復高亮。</p>
-                                    <p>4. 專業保養建議：建議每 1-2 個月回廠養護，可延長膜料壽命與撥水效果。</p>
-                                </div>
-                            </div>
-
-                            <!-- 不在保固服務範圍之事項 (單欄垂直排列) -->
-                            <div class="border-l-4 border-slate-700 pl-6">
-                                <h4 class="font-black text-lg text-slate-900 flex items-center gap-2 mb-4">
-                                    <span class="text-slate-700">🚫</span> 不在保固服務範圍之事項
-                                </h4>
-                                <div class="space-y-2">
-                                    <p>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</p>
-                                    <p>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</p>
-                                    <p>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</p>
-                                    <p>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</p>
-                                    <p>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</p>
-                                    <p>6. 未經授權之加工：非本公司授權之第三方加工或撕除膜料者。</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-16 pt-12 border-t-2 border-slate-900 border-opacity-10 grid grid-cols-1 md:grid-cols-2 gap-12">
-                             <div class="flex flex-col h-full">
-                                 <p class="text-[10px] font-black uppercase mb-6 text-slate-400 tracking-[0.2em]">AS TAIPEI 簽章</p>
-                                 <div class="flex-grow flex items-end pb-4 border-b-2 border-slate-900 w-full min-h-[140px] md:min-h-[180px]">
-                                     <span class="text-4xl md:text-5xl font-black italic text-slate-950 tracking-tighter ml-2 mb-1">${salesDisplay}</span>
-                                 </div>
-                             </div>
-
-                             <div class="flex flex-col h-full">
-                                 <div class="flex items-center gap-2 mb-6">
-                                     <span class="text-blue-500 text-lg">🖋️</span>
-                                     <p class="text-[10px] font-black uppercase text-slate-900 tracking-[0.2em]">客戶簽署</p>
-                                 </div>
-                                 <div class="flex-grow bg-white rounded-[2rem] border-2 border-slate-200 mb-6 overflow-hidden relative min-h-[140px] md:min-h-[180px]">
-                                    ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto object-contain">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
-                                 </div>
-                                 <div class="flex gap-3 no-print">
-                                    ${!d.isSigned ? `<button onclick="window.saveSig()" class="flex-[3] bg-orange-600 hover:bg-orange-700 text-white py-5 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">確認簽署</button>` : ''}
-                                    <button onclick="window.clearSig()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 py-5 rounded-2xl font-black shadow-sm transition-all text-xs">重設</button>
-                                 </div>
-                             </div>
-                        </div>
-                    </div>
-
-                    <div class="no-print space-y-4">
-                        <button onclick="window.saveToCloud(window.currentFormData)" class="w-full bg-orange-500 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">✅ 儲存工單</button>
-                        <button onclick="window.print()" class="w-full bg-slate-950 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl active:scale-95 transition-all">🖨️ 列印單據</button>
-                        <button onclick="window.setMode('form')" class="w-full bg-white text-slate-500 py-4 rounded-2xl font-bold border hover:bg-slate-50 active:scale-95 transition-all">返回修改內容</button>
-                    </div>
-                </div>
-            `;
-            if(!d.isSigned) setTimeout(initSig, 100);
-        };
 
         let sigC, sigX, drawing = false;
         const initSig = () => {
@@ -593,65 +436,33 @@
             sigX = sigC.getContext('2d');
             sigC.width = sigC.offsetWidth; sigC.height = sigC.offsetHeight;
             sigX.strokeStyle = "#0f172a"; sigX.lineWidth = 4; sigX.lineCap = "round";
-            const getP = (e) => { const r = sigC.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+            const getP = (e) => { const r = sigC.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: (ev.clientX - r.left) * (sigC.width / r.width), y: (ev.clientY - r.top) * (sigC.height / r.height) }; };
             const s = (e) => { drawing=true; const p=getP(e); sigX.beginPath(); sigX.moveTo(p.x, p.y); };
             const m = (e) => { if(!drawing) return; const p=getP(e); sigX.lineTo(p.x, p.y); sigX.stroke(); };
             sigC.addEventListener('mousedown', s); sigC.addEventListener('mousemove', m); window.addEventListener('mouseup', ()=>drawing=false);
             sigC.addEventListener('touchstart', (e)=>{e.preventDefault(); s(e);}, {passive:false}); sigC.addEventListener('touchmove', (e)=>{e.preventDefault(); m(e);}, {passive:false});
         };
-        
         window.saveSig = () => { const c = document.getElementById('sig-canvas'); if(!c) return; window.currentFormData.signatureImage = c.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
         window.clearSig = () => { window.currentFormData.isSigned = false; window.currentFormData.signatureImage = null; window.renderQuoteMode(); };
 
         window.saveToCloud = async (orderData) => {
-            if (!auth || !auth.currentUser) { 
-                window.showMessage("尚未連線至雲端，請檢查配置"); 
-                return; 
-            }
+            if (!auth || !auth.currentUser) { window.showMessage("尚未連線"); return; }
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', orderData.id);
-            try {
-                const cleanData = JSON.parse(JSON.stringify(orderData));
-                await setDoc(docRef, { ...cleanData, updatedAt: serverTimestamp() }, { merge: true });
-                window.showMessage("工單儲存成功");
-                window.setMode('history');
-            } catch (e) { 
-                console.error("Save Error:", e);
-                window.showMessage("儲存失敗，請檢查權限"); 
-            }
+            try { await setDoc(docRef, { ...JSON.parse(JSON.stringify(orderData)), updatedAt: serverTimestamp() }, { merge: true }); window.showMessage("儲存成功"); window.setMode('history'); } catch (e) { window.showMessage("儲存失敗"); }
         };
+        window.deleteFromCloud = (id) => { window.pendingDeleteId = id; document.getElementById('custom-confirm-modal').classList.remove('hidden'); };
+        window.executeDelete = async () => { const id = window.pendingDeleteId; document.getElementById('custom-confirm-modal').classList.add('hidden'); if (!id || !auth.currentUser) return; try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', id)); window.showMessage("工單已刪除"); } catch (e) { window.showMessage("刪除失敗"); } };
+        window.exportExcel = () => { const data = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth)).map(o => ({ "單號": o.id, "日期": o.receiveDate, "客戶": o.customerName, "車牌": o.licensePlate, "品牌": o.carBrand, "接待": o.salesPerson, "總額(含稅)": window.calculateOrderTotal(o) })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "月報表"); XLSX.writeFile(wb, `AS_TAIPEI_${window.currentFilterMonth}.xlsx`); };
 
-        window.exportExcel = () => {
-            const data = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth)).map(o => ({
-                "單號": o.id, "日期": o.receiveDate, "客戶": o.customerName, "電話": o.customerPhone, "車牌": o.licensePlate, 
-                "品牌": o.carBrand==='其他'?o.carBrandCustom:o.carBrand, "型號": o.carModel==='其他'?o.carModelCustom:o.carModel,
-                "接待": o.salesPerson==='其他'?o.salesPersonCustom:o.salesPerson, "付款方式": o.paymentMethod,
-                "總額(含稅)": window.calculateOrderTotal(o)
-            }));
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "月報表");
-            XLSX.writeFile(wb, `AS_TAIPEI_${window.currentFilterMonth}.xlsx`);
-        };
-
-        startAuth();
-        
-        // 確保網頁載入後立即進入歷史模式，避免因 Firebase 延遲導致白屏
-        window.addEventListener('load', () => {
-            window.setMode('history');
-        });
-
-        window.setMode = window.setMode;
+        startAuth(); window.addEventListener('load', () => window.setMode('history'));
     </script>
 
-    <header class="no-print bg-slate-950 py-12 px-4 text-center shadow-2xl">
-        <h1 class="text-5xl md:text-6xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1>
-        <div id="online-status" class="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-[0.3em] italic">初始化雲端環境...</div>
-    </header>
+    <header class="no-print bg-slate-950 py-12 px-4 text-center shadow-2xl"><h1 class="text-5xl md:text-6xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1><div id="online-status" class="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-[0.3em] italic">初始化雲端環境...</div></header>
 
     <main id="app-container" class="max-w-6xl mx-auto px-4 py-8 md:py-14 print-container">
         <nav id="nav-bar" class="no-print flex flex-row justify-center gap-4 md:gap-8 mb-10 md:mb-16">
-            <button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-5 md:p-6 px-8 md:px-16 rounded-[2rem] font-black shadow-lg border border-slate-100 hover:bg-slate-50 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">📋 工單總表</button>
-            <button onclick="window.setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-5 md:p-6 px-8 md:px-16 rounded-[2rem] font-black shadow-2xl shadow-orange-200 hover:bg-orange-600 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">＋ 建立新案</button>
+            <button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-5 md:p-6 px-8 md:px-16 rounded-[2.5rem] font-black shadow-lg border border-slate-100 hover:bg-slate-50 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">📋 工單總表</button>
+            <button onclick="window.setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-5 md:p-6 px-8 md:px-16 rounded-[2.5rem] font-black shadow-2xl shadow-orange-200 hover:bg-orange-600 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">＋ 建立新案</button>
         </nav>
         <section id="mode-history" class="hidden"></section>
         <section id="mode-form" class="hidden"></section>
@@ -659,23 +470,8 @@
         <section id="mode-printPreview" class="hidden"></section>
     </main>
 
-    <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden p-4 no-print">
-        <div class="bg-white p-8 md:p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center border-t-8 border-red-500 animate-in fade-in zoom-in duration-200">
-            <div class="text-5xl mb-6">🗑️</div>
-            <h3 class="text-2xl font-black text-slate-900 mb-2 tracking-tighter">確認要刪除嗎？</h3>
-            <p class="text-sm text-slate-500 font-medium mb-10 leading-relaxed">刪除後單據資料將無法從雲端復原。</p>
-            <div class="flex gap-4">
-                <button onclick="document.getElementById('custom-confirm-modal').classList.add('hidden')" class="flex-1 py-5 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100">取消</button>
-                <button onclick="window.executeDelete()" class="flex-1 py-5 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200 transition-all hover:bg-red-600 active:scale-95">確定</button>
-            </div>
-        </div>
-    </div>
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden p-4 no-print"><div class="bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center border-t-8 border-red-500"><div class="text-5xl mb-6">🗑️</div><h3 class="text-2xl font-black text-slate-900 mb-2">確認要刪除嗎？</h3><p class="text-sm text-slate-500 mb-8">刪除後資料將無法從雲端復原。</p><div class="flex gap-4"><button onclick="document.getElementById('custom-confirm-modal').classList.add('hidden')" class="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black">取消</button><button onclick="window.executeDelete()" class="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200">確定刪除</button></div></div></div>
 
-    <div id="ui-message" class="fixed top-10 left-1/2 -translate-x-1/2 z-[200] hidden no-print w-[90%] md:w-auto">
-        <div class="bg-slate-950 text-white px-10 py-5 rounded-[2rem] shadow-2xl font-black text-sm tracking-widest animate-bounce flex items-center justify-center gap-4 border border-slate-800">
-            <span class="text-orange-500 text-xl">●</span>
-            <span id="ui-message-text"></span>
-        </div>
-    </div>
+    <div id="ui-message" class="fixed top-10 left-1/2 -translate-x-1/2 z-[200] hidden no-print w-[90%] md:w-auto"><div class="bg-slate-950 text-white px-10 py-5 rounded-[2.5rem] shadow-2xl font-black text-sm tracking-widest flex items-center justify-center gap-4 border border-slate-800"><span class="text-orange-500 text-xl">●</span><span id="ui-message-text"></span></div></div>
 </body>
 </html>
