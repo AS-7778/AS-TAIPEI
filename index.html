@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AS TAIPEI 雲端美研系統 v11.7</title>
+    <title>AS TAIPEI 雲端美研系統 v11.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -24,7 +24,7 @@
         @media print {
             @page { 
                 size: A4 portrait; 
-                margin: 10mm 8mm 10mm 8mm; /* 預留最安全 A4 物理邊界，不被印表機邊緣裁切 */
+                margin: 10mm 8mm 10mm 8mm; /* 物理安全邊界，防止被任何印表機邊緣裁切 */
             }
             body { 
                 background-color: white !important; 
@@ -40,7 +40,7 @@
             .print-footer { flex-direction: row !important; align-items: flex-end !important; margin-top: 2rem !important; }
             .grid-cols-3 { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
             
-            /* A4 滿版寬度精準縮放與定位（避開多餘的陰影或切邊） */
+            /* A4 滿版寬度精準定位 */
             .print-container { 
                 width: 100% !important; 
                 max-width: 194mm !important; 
@@ -52,13 +52,13 @@
                 page-break-inside: avoid;
             }
 
-            /* 強制防止內容在不該斷開的地方被裁切成兩頁 */
+            /* 強制防止重要內容在不該斷開的地方被裁切成兩頁 */
             .print-no-break {
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
             }
 
-            /* A4 高度優化縮放，微調間距避免擠壓出第二頁 */
+            /* A4 間距微調，最大化容納量，避免擠壓出多餘空白頁 */
             .print-info-grid {
                 padding: 1.5rem !important;
                 margin-bottom: 1.5rem !important;
@@ -121,7 +121,7 @@
             "Lexus 凌志": ["RX Series", "NX Series", "LM Series", "ES Series", "LC/LS"],
             "Toyota": ["Alphard/Vellfire", "Crown", "RAV4", "GR Yaris/Supra", "Sienna"],
             "Ferrari 法拉利": ["296 GTB", "SF90", "Purosangue", "F8/Roma", "812"],
-            "Lamborghini 藍寶堅尼": ["Urus", "Revuelto", "Huracán", "Aventador"],
+            "Lamborghini 藍寶親尼": ["Urus", "Revuelto", "Huracán", "Aventador"],
             "McLaren 麥拉倫": ["750S/720S", "Artura", "GT", "765LT"],
             "Aston Martin": ["DBX", "Vantage", "DB12/DB11"],
             "Bentley 賓利": ["Continental GT", "Bentayga", "Flying Spur"],
@@ -162,7 +162,10 @@
         window.workOrders = [];
         window.currentMode = 'history';
         window.currentFormData = {};
-        window.currentFilterMonth = new Date().toISOString().slice(0, 7);
+
+        // 使用本地時間初始化查詢月份，避免 UTC 時區偏差造成月份落後
+        const initNow = new Date();
+        window.currentFilterMonth = `${initNow.getFullYear()}-${(initNow.getMonth() + 1).toString().padStart(2, '0')}`;
 
         const startAuth = async () => {
             const statusEl = document.getElementById('online-status');
@@ -205,10 +208,26 @@
         window.setMode = (mode, data = null, isNew = false) => {
             window.currentMode = mode;
             if (isNew) {
-                const today = new Date().toISOString().split('T')[0];
+                // 100% 本地時區安全：依據當前裝置時區生成，絕不使用 ISOString 避免時差落後一天的 Bug
+                const now = new Date();
+                const localYear = now.getFullYear();
+                const localMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+                const localDay = now.getDate().toString().padStart(2, '0');
+
+                const todayStr = `${localYear}-${localMonth}-${localDay}`; // 當天日期 YYYY-MM-DD
+                const currentMonthPrefix = `${localYear.toString().slice(2)}${localMonth}`; // YYMM 例如 "2607"
+                const fullDateStr = `${localYear.toString().slice(2)}${localMonth}${localDay}`; // YYMMDD 例如 "260715"
+
+                // 2. 嚴格對齊：只篩選 receiveDate 符合當前本地年月份 "YYYY-MM" 的雲端有效案源
+                const targetMonthStr = `${localYear}-${localMonth}`;
+                const monthlyOrders = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(targetMonthStr));
+                
+                // 計算正確的流水號 (列表上顯示幾張，新單就是 +1)
+                const seq = (monthlyOrders.length + 1).toString().padStart(3, '0');
+
                 window.currentFormData = {
-                    id: `AS-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${(window.workOrders.length+1).toString().padStart(3,'0')}`,
-                    receiveDate: today, deliveryDate: today,
+                    id: `AS-${fullDateStr}-${seq}`,
+                    receiveDate: todayStr, deliveryDate: todayStr,
                     customerName: '', customerPhone: '', licensePlate: '',
                     carBrand: 'Audi 奧迪', carBrandCustom: '', carModel: 'RS6/RS7', carModelCustom: '',
                     salesPerson: 'Audi', salesPersonCustom: '', paymentMethod: '現金', needsInvoice: false,
@@ -320,15 +339,8 @@
                         <div class="space-y-4 mb-10">
                             ${d.notes && d.notes.trim() !== '' ? `
                             <div class="p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10 print-notes">
-                                <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項 (一般備註)</p>
+                                <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項</p>
                                 <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.notes}</p>
-                            </div>
-                            ` : ''}
-
-                            ${d.salesNotes && d.salesNotes.trim() !== '' ? `
-                            <div class="no-print p-6 bg-blue-50 border border-blue-200 border-dashed rounded-2xl relative z-10">
-                                <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">💼 業務內部備註 (本欄位列印時會自動隱藏，客戶看不見)</p>
-                                <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.salesNotes}</p>
                             </div>
                             ` : ''}
                         </div>
@@ -381,7 +393,7 @@
                                 </ul>
                             </div>
 
-                            <!-- AS TAIPEI 官方 LINE 保固啟用認證區塊 (引用 L_gainfriends_2dbarcodes_BW.png，無縫動態備用防錯機制) -->
+                            <!-- AS TAIPEI 官方 LINE 保固啟用認證區塊 (自適應雙通道 QR 圖片支援) -->
                             <div class="mt-4 p-6 md:p-8 rounded-[2rem] border-2 border-[#a7f3d0] bg-[#f0fdfa] text-center shadow-sm relative overflow-hidden flex flex-col items-center print-no-break card-bg-print">
                                 <h4 class="font-black text-slate-900 text-lg md:text-xl flex items-center justify-center gap-2 mb-3">
                                     <span class="text-xl">📲</span> AS TAIPEI 官方 LINE 保固啟用認證
@@ -409,13 +421,12 @@
                             </div>
                         </div>
 
+                        <!-- 調整為置中並縮小的「服務代表簽署」與「公司用印章」 -->
                         <div class="mt-10 pt-6 border-t-2 border-slate-950 border-opacity-5 flex flex-row justify-center items-center gap-12 relative z-10 print-footer print-no-break text-center">
-                            <!-- 服務代表簽署區塊 -->
                             <div class="flex flex-col items-center">
                                 <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2">服務代表簽署</p>
                                 <p class="text-xl font-black italic text-slate-950 tracking-tighter border-b border-slate-200 pb-1 px-4">${salesDisplay}</p>
                             </div>
-                            <!-- 公司用印章區塊 -->
                             <div class="flex flex-col items-center">
                                 <div class="w-20 h-20 border-2 border-orange-100 rounded-full flex items-center justify-center mb-1 relative">
                                     <div class="text-[7px] font-black text-orange-200 transform -rotate-12 leading-tight">AS TAIPEI SEAL</div>
@@ -560,6 +571,7 @@
         startAuth(); window.addEventListener('load', () => window.setMode('history'));
     </script>
 
+    <!-- 頂部與主介面框架 -->
     <header class="no-print bg-slate-950 py-12 px-4 text-center shadow-2xl"><h1 class="text-5xl md:text-6xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1><div id="online-status" class="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-[0.3em] italic">初始化雲端環境...</div></header>
 
     <main id="app-container" class="max-w-6xl mx-auto px-4 py-8 md:py-14 print-container">
@@ -573,8 +585,10 @@
         <section id="mode-printPreview" class="hidden"></section>
     </main>
 
+    <!-- 自訂刪除確認對話框 -->
     <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden p-4 no-print"><div class="bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center border-t-8 border-red-500"><div class="text-5xl mb-6">🗑️</div><h3 class="text-2xl font-black text-slate-900 mb-2">確認要刪除嗎？</h3><p class="text-sm text-slate-500 mb-8">刪除後資料將無法從雲端復原。</p><div class="flex gap-4"><button onclick="document.getElementById('custom-confirm-modal').classList.add('hidden')" class="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black">取消</button><button onclick="window.executeDelete()" class="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200">確定刪除</button></div></div></div>
 
+    <!-- UI 訊息提示框 -->
     <div id="ui-message" class="fixed top-10 left-1/2 -translate-x-1/2 z-[200] hidden no-print w-[90%] md:w-auto"><div class="bg-slate-950 text-white px-10 py-5 rounded-[2.5rem] shadow-2xl font-black text-sm tracking-widest flex items-center justify-center gap-4 border border-slate-800"><span class="text-orange-500 text-xl">●</span><span id="ui-message-text"></span></div></div>
 </body>
 </html>
