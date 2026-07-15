@@ -22,19 +22,28 @@
         .print-only { display: none; }
         
         @media print {
-            @page { size: A4 portrait; margin: 10mm; }
-            body { background-color: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            @page { 
+                size: A4 portrait; 
+                margin: 10mm 8mm 10mm 8mm; /* 預留最安全 A4 物理邊界，不被印表機邊緣裁切 */
+            }
+            body { 
+                background-color: white !important; 
+                margin: 0; 
+                padding: 0; 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+            }
             .no-print { display: none !important; }
             .print-only { display: block; }
             
-            /* Force desktop layout rules for print to fix mobile printing issues */
-            .print-header { flex-direction: row !important; align-items: center !important; }
-            .print-footer { flex-direction: row !important; align-items: flex-end !important; }
+            .print-header { flex-direction: row !important; align-items: center !important; margin-bottom: 1.5rem !important; pb-6 !important; }
+            .print-footer { flex-direction: row !important; align-items: flex-end !important; margin-top: 2rem !important; }
             .grid-cols-3 { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
             
+            /* A4 滿版寬度精準縮放與定位（避開多餘的陰影或切邊） */
             .print-container { 
                 width: 100% !important; 
-                max-width: 190mm !important; /* Fits nicely inside A4 width */
+                max-width: 194mm !important; 
                 padding: 0 !important; 
                 margin: 0 auto !important; 
                 border: none !important; 
@@ -42,12 +51,45 @@
                 background-color: white !important;
                 page-break-inside: avoid;
             }
-            
+
+            /* 強制防止內容在不該斷開的地方被裁切成兩頁 */
+            .print-no-break {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            /* A4 高度優化縮放，微調間距避免擠壓出第二頁 */
+            .print-info-grid {
+                padding: 1.5rem !important;
+                margin-bottom: 1.5rem !important;
+                gap: 1rem !important;
+                border-radius: 1.5rem !important;
+            }
+            .print-notes {
+                margin-bottom: 1.5rem !important;
+                padding: 1rem !important;
+                border-radius: 1rem !important;
+            }
+            .print-table-container {
+                margin-bottom: 1.5rem !important;
+                border-radius: 1rem !important;
+            }
+            .print-clause {
+                margin-bottom: 1.5rem !important;
+                gap: 1.5rem !important;
+            }
+
             .print-report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             .print-report-table th, .print-report-table td { border: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; line-height: 1.4; }
             .print-report-table th { background-color: #f8fafc !important; color: #0f172a !important; -webkit-print-color-adjust: exact; }
             .page-break { page-break-after: always; }
             .bg-orange-500 { background-color: #f97316 !important; -webkit-print-color-adjust: exact; }
+            .card-bg-print {
+                background-color: #f0fdf4 !important;
+                border: 2px solid #a7f3d0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
         }
 
         .quote-watermark {
@@ -94,7 +136,6 @@
 
         const SALES_LIST = ["Audi", "小蔡", "小楊", "其他"];
 
-        // Modified: Confirmed Service Templates contain "前置鍍膜方案一", "前置鍍膜方案二"
         const SERVICE_TEMPLATES = [
             "全車頂級車漆保護膜 (PPF)", "全車改色膜施工", "車頭局部防護方案", "迎風面保護膜",
             "內裝專屬保護膜", "雙層陶瓷深層鍍膜", "前置鍍膜方案一", "前置鍍膜方案二", "全車基礎美容增艷", "精緻手作洗車保養",
@@ -157,7 +198,6 @@
             setTimeout(() => el.classList.add('hidden'), 3000);
         };
 
-        // Fixed: Removed setTimeout to ensure native print dialog works reliably on mobile/tablet devices
         window.handlePrint = () => { 
             window.print(); 
         };
@@ -173,7 +213,7 @@
                     carBrand: 'Audi 奧迪', carBrandCustom: '', carModel: 'RS6/RS7', carModelCustom: '',
                     salesPerson: 'Audi', salesPersonCustom: '', paymentMethod: '現金', needsInvoice: false,
                     serviceItems: [{ name: '全車頂級車漆保護膜 (PPF)', nameCustom: '', price: 0 }],
-                    notes: '', isSigned: false, signatureImage: null // Notes is initialized correctly
+                    notes: '', isSigned: false, signatureImage: null
                 };
             } else if (data) { window.currentFormData = JSON.parse(JSON.stringify(data)); }
             ['history', 'form', 'quote', 'printPreview'].forEach(m => {
@@ -224,7 +264,7 @@
             const total = subtotal + tax;
 
             const brandDisplay = d.carBrand === '其他' ? d.carBrandCustom : d.carBrand;
-            const modelDisplay = d.carModel === '其他' ? d.carModelCustom : d.carModel;
+            const modelDisplay = d.carModel === 'Tailwind' ? d.carModelCustom : d.carModel;
             const salesDisplay = d.salesPerson === '其他' ? d.salesPersonCustom : d.salesPerson;
 
             container.innerHTML = `
@@ -245,7 +285,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-y-10 gap-x-6 mb-10 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 relative z-10">
+                        <div class="grid grid-cols-3 gap-y-10 gap-x-6 mb-10 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 relative z-10 print-info-grid">
                             <div class="space-y-1">
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">客戶姓名</p>
                                 <p class="font-black text-lg text-slate-900">${d.customerName || '-'}</p>
@@ -257,7 +297,7 @@
                             <div class="space-y-1">
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">施工車輛</p>
                                 <div class="flex items-center gap-3">
-                                    <p class="font-black text-lg text-slate-900">${brandDisplay} ${modelDisplay}</p>
+                                    <p class="font-black text-lg text-slate-900">${brandDisplay} ${d.carModel==='其他'?d.carModelCustom:d.carModel}</p>
                                     <span class="bg-slate-900 text-white px-2 py-1 rounded-lg text-[11px] font-mono font-black uppercase tracking-wider">${d.licensePlate || 'N/A'}</span>
                                 </div>
                             </div>
@@ -277,13 +317,13 @@
                         </div>
 
                         ${d.notes && d.notes.trim() !== '' ? `
-                        <div class="mb-10 p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10">
+                        <div class="mb-10 p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10 print-notes">
                             <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項</p>
                             <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.notes}</p>
                         </div>
                         ` : ''}
 
-                        <div class="overflow-hidden rounded-[2rem] border-2 border-slate-100 mb-10 shadow-sm relative z-10">
+                        <div class="overflow-hidden rounded-[2rem] border-2 border-slate-100 mb-10 shadow-sm relative z-10 print-table-container">
                             <table class="w-full">
                                 <thead class="bg-slate-900 text-white">
                                     <tr><th class="p-5 text-left text-xs font-black uppercase tracking-widest">施工服務項目明細</th><th class="p-5 text-right text-xs font-black uppercase tracking-widest">金額 (TWD)</th></tr>
@@ -298,9 +338,9 @@
                             </table>
                         </div>
 
-                        <div class="flex flex-col gap-10 text-[14px] leading-relaxed border-t-2 border-slate-100 pt-10 text-slate-600 font-medium relative z-10">
+                        <div class="flex flex-col gap-10 text-[14px] leading-relaxed border-t-2 border-slate-100 pt-10 text-slate-600 font-medium relative z-10 print-clause">
                             
-                            <div class="pl-6 border-l-8 border-orange-500">
+                            <div class="pl-6 border-l-8 border-orange-500 print-no-break">
                                 <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">⚠️ 施工品質驗收標準</h4>
                                 <ul class="space-y-1.5 list-disc list-inside text-slate-700 font-bold">
                                     <li>車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。</li>
@@ -309,7 +349,7 @@
                                 </ul>
                             </div>
 
-                            <div class="pl-6 border-l-8 border-blue-500">
+                            <div class="pl-6 border-l-8 border-blue-500 print-no-break">
                                 <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🛡️ 保護膜養護須知</h4>
                                 <ul class="space-y-1.5 text-slate-700 font-bold">
                                     <li>1. 48小時嚴禁洗車：施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</li>
@@ -319,19 +359,35 @@
                                 </ul>
                             </div>
 
-                            <div class="pl-6 border-l-8 border-red-500">
+                            <div class="pl-6 border-l-8 border-red-500 print-no-break">
                                 <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🚫 不在保固服務範圍之事項</h4>
                                 <ul class="space-y-1.5 text-slate-700 font-bold">
                                     <li>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</li>
-                                    <li>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機或粗糙海綿。</li>
+                                    <li>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機 or 粗糙海綿。</li>
                                     <li>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</li>
                                     <li>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</li>
                                     <li>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</li>
-                                    <li>6. 未經授權之加工：非本公司授權之第三方加工或撕除膜料者。</li>
+                                    <li>6. 未經授權之加工：非本公司授權之第三方加工 or 撕除膜料者。</li>
                                 </ul>
                             </div>
 
-                            <div class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 shadow-sm mt-4">
+                            <!-- AS TAIPEI 官方 LINE 保固啟用認證區塊 (引用 L_gainfriends_2dbarcodes_BW.png，無縫動態備用防錯機制) -->
+                            <div class="mt-4 p-6 md:p-8 rounded-[2rem] border-2 border-[#a7f3d0] bg-[#f0fdfa] text-center shadow-sm relative overflow-hidden flex flex-col items-center print-no-break card-bg-print">
+                                <h4 class="font-black text-slate-900 text-lg md:text-xl flex items-center justify-center gap-2 mb-3">
+                                    <span class="text-xl">📲</span> AS TAIPEI 官方 LINE 保固啟用認證
+                                </h4>
+                                <p class="text-xs md:text-sm text-slate-700 font-bold max-w-xl leading-relaxed mb-6">
+                                    請掃描下方 QR Code 加入官方 LINE 帳號，<span class="text-red-500 font-black">加入後請拍下您的「紙本保固卡」發送給我們</span>以啟用線上電子保固。
+                                </p>
+                                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-md mb-5 inline-block">
+                                    <img id="invoice-line-qr" src="L_gainfriends_2dbarcodes_BW.png" onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https%3A%2F%2Fline.me%2FR%2Fti%2Fp%2F%40as7778';" alt="Official LINE QR Code" class="w-36 h-36 md:w-40 md:h-40 object-contain mx-auto">
+                                </div>
+                                <p class="text-xs md:text-sm text-[#065f46] font-extrabold tracking-wider">
+                                    LINE 搜尋 ID: <span class="underline">@as7778</span> (加入後請發送愛車車牌與紙本保固卡照片)
+                                </p>
+                            </div>
+
+                            <div class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 shadow-sm mt-4 print-no-break">
                                 <h4 class="font-black text-slate-950 mb-6 text-center tracking-widest uppercase text-xs">客戶確認簽名 (Client Confirmation)</h4>
                                 <div class="bg-slate-50 rounded-2xl border-2 border-slate-200 h-40 overflow-hidden relative shadow-inner">
                                     ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto object-contain">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
@@ -343,18 +399,20 @@
                             </div>
                         </div>
 
-                        <div class="mt-16 pt-10 border-t-2 border-slate-950 border-opacity-5 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10 print-footer">
-                             <div class="flex flex-col items-center">
-                                 <div class="w-32 h-32 border-2 border-orange-100 rounded-full flex items-center justify-center mb-4 relative">
-                                    <div class="text-[9px] font-black text-orange-200 transform -rotate-12">AS TAIPEI OFFICIAL SEAL</div>
-                                    <div class="absolute inset-0 border-4 border-orange-50 rounded-full m-1"></div>
-                                 </div>
-                                 <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">公司用印章</p>
-                             </div>
-                             <div class="text-right flex-grow">
-                                 <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">服務代表簽署</p>
-                                 <p class="text-4xl font-black italic text-slate-950 tracking-tighter">${salesDisplay}</p>
-                             </div>
+                        <div class="mt-10 pt-6 border-t-2 border-slate-950 border-opacity-5 flex flex-row justify-center items-center gap-12 relative z-10 print-footer print-no-break text-center">
+                            <!-- 服務代表簽署區塊 (縮小並置中) -->
+                            <div class="flex flex-col items-center">
+                                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2">服務代表簽署</p>
+                                <p class="text-xl font-black italic text-slate-950 tracking-tighter border-b border-slate-200 pb-1 px-4">${salesDisplay}</p>
+                            </div>
+                            <!-- 公司用印章區塊 (縮小至 w-20 h-20 並置中) -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-20 h-20 border-2 border-orange-100 rounded-full flex items-center justify-center mb-1 relative">
+                                    <div class="text-[7px] font-black text-orange-200 transform -rotate-12 leading-tight">AS TAIPEI SEAL</div>
+                                    <div class="absolute inset-0 border-2 border-orange-50 rounded-full m-0.5"></div>
+                                </div>
+                                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">公司用印章</p>
+                            </div>
                         </div>
                     </div>
 
@@ -428,7 +486,6 @@
             window.fillModels(window.currentFormData.carBrand);
             window.renderItems();
             
-            // Collect all inputs, specifically ensuring notes are extracted
             document.getElementById('btn-next').onclick = () => {
                 Object.assign(window.currentFormData, {
                     customerName: document.getElementById('f-customerName').value,
@@ -444,7 +501,7 @@
                     receiveDate: document.getElementById('f-receiveDate').value,
                     deliveryDate: document.getElementById('f-deliveryDate').value,
                     needsInvoice: document.getElementById('f-needsInvoice').checked,
-                    notes: document.getElementById('f-notes').value // Safe capture of notes value
+                    notes: document.getElementById('f-notes').value
                 });
                 window.setMode('quote');
             };
