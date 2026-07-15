@@ -213,7 +213,7 @@
                     carBrand: 'Audi 奧迪', carBrandCustom: '', carModel: 'RS6/RS7', carModelCustom: '',
                     salesPerson: 'Audi', salesPersonCustom: '', paymentMethod: '現金', needsInvoice: false,
                     serviceItems: [{ name: '全車頂級車漆保護膜 (PPF)', nameCustom: '', price: 0 }],
-                    notes: '', isSigned: false, signatureImage: null
+                    notes: '', salesNotes: '', isSigned: false, signatureImage: null
                 };
             } else if (data) { window.currentFormData = JSON.parse(JSON.stringify(data)); }
             ['history', 'form', 'quote', 'printPreview'].forEach(m => {
@@ -316,12 +316,22 @@
                             </div>
                         </div>
 
-                        ${d.notes && d.notes.trim() !== '' ? `
-                        <div class="mb-10 p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10 print-notes">
-                            <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項</p>
-                            <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.notes}</p>
+                        <!-- 備註區塊：區分一般備註與業務內部備註 -->
+                        <div class="space-y-4 mb-10">
+                            ${d.notes && d.notes.trim() !== '' ? `
+                            <div class="p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10 print-notes">
+                                <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項 (一般備註)</p>
+                                <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.notes}</p>
+                            </div>
+                            ` : ''}
+
+                            ${d.salesNotes && d.salesNotes.trim() !== '' ? `
+                            <div class="no-print p-6 bg-blue-50 border border-blue-200 border-dashed rounded-2xl relative z-10">
+                                <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">💼 業務內部備註 (本欄位列印時會自動隱藏，客戶看不見)</p>
+                                <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.salesNotes}</p>
+                            </div>
+                            ` : ''}
                         </div>
-                        ` : ''}
 
                         <div class="overflow-hidden rounded-[2rem] border-2 border-slate-100 mb-10 shadow-sm relative z-10 print-table-container">
                             <table class="w-full">
@@ -353,7 +363,7 @@
                                 <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🛡️ 保護膜養護須知</h4>
                                 <ul class="space-y-1.5 text-slate-700 font-bold">
                                     <li>1. 48小時嚴禁洗車：施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</li>
-                                    <li>2. 洗車務必擦乾：洗車後請確實將水分擦乾，嚴禁高壓水槍近距離直噴膜面邊緣。</li>
+                                    <li>2. 官方洗車提示：洗車後請確實將水分擦乾，嚴禁高壓水槍近距離直噴膜面邊緣。</li>
                                     <li>3. 初期霧感現象：安裝後若有微霧感屬正常過程，視天候約 10 天後恢復高亮。</li>
                                     <li>4. 專業保養建議：建議每 1-2 個月回廠養護，可延長膜料壽命與撥水效果。</li>
                                 </ul>
@@ -400,12 +410,12 @@
                         </div>
 
                         <div class="mt-10 pt-6 border-t-2 border-slate-950 border-opacity-5 flex flex-row justify-center items-center gap-12 relative z-10 print-footer print-no-break text-center">
-                            <!-- 服務代表簽署區塊 (縮小並置中) -->
+                            <!-- 服務代表簽署區塊 -->
                             <div class="flex flex-col items-center">
                                 <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2">服務代表簽署</p>
                                 <p class="text-xl font-black italic text-slate-950 tracking-tighter border-b border-slate-200 pb-1 px-4">${salesDisplay}</p>
                             </div>
-                            <!-- 公司用印章區塊 (縮小至 w-20 h-20 並置中) -->
+                            <!-- 公司用印章區塊 -->
                             <div class="flex flex-col items-center">
                                 <div class="w-20 h-20 border-2 border-orange-100 rounded-full flex items-center justify-center mb-1 relative">
                                     <div class="text-[7px] font-black text-orange-200 transform -rotate-12 leading-tight">AS TAIPEI SEAL</div>
@@ -474,9 +484,16 @@
                         <div class="flex items-center gap-4 p-4 bg-slate-50 border rounded-2xl mt-4 cursor-pointer" onclick="const ck=document.getElementById('f-needsInvoice');ck.checked=!ck.checked"><input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 rounded border-slate-300 text-orange-500 focus:ring-orange-500" onclick="event.stopPropagation()"><label class="font-black text-slate-700 select-none">需開發票 (+5%)</label></div>
                     </div>
                     
-                    <div class="space-y-2 mt-4">
-                        <label class="text-[10px] font-black text-slate-400 uppercase">備註事項 (選填)</label>
-                        <textarea id="f-notes" rows="3" placeholder="輸入特殊需求或提醒事項..." class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none resize-none">${window.currentFormData.notes || ''}</textarea>
+                    <!-- 拆分後的備註事項區塊 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-slate-400 uppercase">一般備註 (客戶可見，會列印在單據上)</label>
+                            <textarea id="f-notes" rows="3" placeholder="輸入會顯示在單據上的備註事項..." class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none resize-none">${window.currentFormData.notes || ''}</textarea>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1"><span>💼</span> 業務內部備註 (僅限內部查看，列印時自動隱藏)</label>
+                            <textarea id="f-salesNotes" rows="3" placeholder="輸入僅限內部查看的商務備註或施工細部利潤資訊..." class="w-full p-4 bg-blue-50/50 border border-blue-100 rounded-2xl font-bold focus:ring-2 ring-blue-500 outline-none resize-none">${window.currentFormData.salesNotes || ''}</textarea>
+                        </div>
                     </div>
 
                     <div class="bg-slate-50 p-6 rounded-[2.5rem] border"><h3 class="font-black mb-6 text-xl text-slate-900">服務項目明細</h3><div id="items-container" class="space-y-4"></div><button type="button" onclick="window.addItem()" class="mt-6 w-full py-5 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button></div>
@@ -501,7 +518,8 @@
                     receiveDate: document.getElementById('f-receiveDate').value,
                     deliveryDate: document.getElementById('f-deliveryDate').value,
                     needsInvoice: document.getElementById('f-needsInvoice').checked,
-                    notes: document.getElementById('f-notes').value
+                    notes: document.getElementById('f-notes').value,
+                    salesNotes: document.getElementById('f-salesNotes').value
                 });
                 window.setMode('quote');
             };
