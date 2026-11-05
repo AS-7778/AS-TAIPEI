@@ -2,592 +2,997 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AS TAIPEI 雲端美研系統 v11.8</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>營業稅統計與對帳系統 (雲端/測試雙模式)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (Compat v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
-        :root { --primary-orange: #f97316; --deep-slate: #0f172a; }
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #0f172a; -webkit-tap-highlight-color: transparent; }
-        .signature-canvas { border: 2px solid #e2e8f0; background-color: #fff; touch-action: none; cursor: crosshair; border-radius: 16px; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        .remind-box { border-left: 4px solid #f59e0b; background-color: #fffbeb; }
+        .editable-cell:hover { background-color: #f1f5f9; cursor: pointer; border-radius: 4px; }
+        .editing-input { width: 100%; padding: 4px 8px; border: 2px solid #3b82f6; border-radius: 6px; outline: none; font-size: inherit; }
         
-        @media (max-width: 768px) {
-            .responsive-table thead { display: none; }
-            .responsive-table tr { display: block; border-bottom: 8px solid #f1f5f9; padding: 15px 0; }
-            .responsive-table td { display: block; width: 100%; text-align: left !important; padding: 10px 20px !important; border: none !important; }
-            .responsive-table td:last-child { border-top: 1px solid #f1f5f9; margin-top: 10px; }
-        }
+        .tab-btn { transition: all 0.2s; border-bottom: 3px solid transparent; }
+        .tab-btn.active { border-color: #3b82f6; color: #3b82f6; font-weight: 700; background-color: #ffffff; }
 
-        .print-only { display: none; }
-        
+        #print-area-1, #print-area-2 { display: none; }
+
         @media print {
-            @page { 
-                size: A4 portrait; 
-                margin: 10mm 8mm 10mm 8mm; /* 物理安全邊界，防止被任何印表機邊緣裁切 */
-            }
-            body { 
-                background-color: white !important; 
-                margin: 0; 
-                padding: 0; 
-                -webkit-print-color-adjust: exact !important; 
-                print-color-adjust: exact !important; 
-            }
-            .no-print { display: none !important; }
-            .print-only { display: block; }
-            
-            .print-header { flex-direction: row !important; align-items: center !important; margin-bottom: 1.5rem !important; pb-6 !important; }
-            .print-footer { flex-direction: row !important; align-items: flex-end !important; margin-top: 2rem !important; }
-            .grid-cols-3 { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
-            
-            /* A4 滿版寬度精準定位 */
-            .print-container { 
-                width: 100% !important; 
-                max-width: 194mm !important; 
-                padding: 0 !important; 
-                margin: 0 auto !important; 
-                border: none !important; 
-                box-shadow: none !important;
-                background-color: white !important;
-                page-break-inside: avoid;
-            }
-
-            /* 強制防止重要內容在不該斷開的地方被裁切成兩頁 */
-            .print-no-break {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-            }
-
-            /* A4 間距微調，最大化容納量，避免擠壓出多餘空白頁 */
-            .print-info-grid {
-                padding: 1.5rem !important;
-                margin-bottom: 1.5rem !important;
-                gap: 1rem !important;
-                border-radius: 1.5rem !important;
-            }
-            .print-notes {
-                margin-bottom: 1.5rem !important;
-                padding: 1rem !important;
-                border-radius: 1rem !important;
-            }
-            .print-table-container {
-                margin-bottom: 1.5rem !important;
-                border-radius: 1rem !important;
-            }
-            .print-clause {
-                margin-bottom: 1.5rem !important;
-                gap: 1.5rem !important;
-            }
-
-            .print-report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            .print-report-table th, .print-report-table td { border: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; line-height: 1.4; }
-            .print-report-table th { background-color: #f8fafc !important; color: #0f172a !important; -webkit-print-color-adjust: exact; }
-            .page-break { page-break-after: always; }
-            .bg-orange-500 { background-color: #f97316 !important; -webkit-print-color-adjust: exact; }
-            .card-bg-print {
-                background-color: #f0fdf4 !important;
-                border: 2px solid #a7f3d0 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-        }
-
-        .quote-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg);
-            font-size: 8rem;
-            font-weight: 900;
-            color: rgba(249, 115, 22, 0.03);
-            pointer-events: none;
-            z-index: 0;
-            white-space: nowrap;
+            .no-print, header, nav, button, select, .input-area { display: none !important; }
+            body { background: white; padding: 0; margin: 0; }
+            .tab-content { display: none !important; }
+            .tab-content.print-active { display: block !important; }
+            #print-area-1, #print-area-2 { display: block !important; }
+            .print-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+            .print-table th, .print-table td { border: 1px solid #000; padding: 6px; text-align: left; }
         }
     </style>
 </head>
-<body class="min-h-screen">
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+<body class="min-h-screen text-slate-800 pb-20">
 
-        const CAR_DATABASE = {
-            "Porsche 保時捷": ["911", "Taycan", "Cayenne", "Macan", "718 Panamera"],
-            "BMW": ["M2/M3/M4", "M5/M8", "X5/X6/X7", "3/5/7 Series", "iX/i4/i7"],
-            "Mercedes-Benz": ["G-Class", "AMG GT", "S-Class", "E-Class", "C-Class", "GLE/GLC"],
-            "Tesla 特斯拉": ["Model S", "Model X", "Model 3", "Model Y"],
-            "Audi 奧迪": ["RS6/RS7", "e-tron GT", "R8", "Q7/Q8", "A4/A5/A6"],
-            "Lexus 凌志": ["RX Series", "NX Series", "LM Series", "ES Series", "LC/LS"],
-            "Toyota": ["Alphard/Vellfire", "Crown", "RAV4", "GR Yaris/Supra", "Sienna"],
-            "Ferrari 法拉利": ["296 GTB", "SF90", "Purosangue", "F8/Roma", "812"],
-            "Lamborghini 藍寶親尼": ["Urus", "Revuelto", "Huracán", "Aventador"],
-            "McLaren 麥拉倫": ["750S/720S", "Artura", "GT", "765LT"],
-            "Aston Martin": ["DBX", "Vantage", "DB12/DB11"],
-            "Bentley 賓利": ["Continental GT", "Bentayga", "Flying Spur"],
-            "Rolls-Royce 勞斯萊斯": ["Cullinan", "Ghost", "Phantom", "Spectre"],
-            "Maserati 瑪莎拉蒂": ["Grecale", "Levante", "MC20", "Ghibli"],
-            "Land Rover": ["Range Rover", "Defender", "Discovery"],
-            "Volvo": ["XC90", "XC60", "XC40", "V60/V90"],
-            "Mazda": ["CX-60", "CX-5", "CX-30", "Mazda 3"],
-            "Honda": ["Civic Type R", "CR-V", "HR-V", "Odyssey"],
-            "其他": []
-        };
+    <!-- 登入畫面遮罩 (Login Screen) -->
+    <div id="loginScreen" class="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100">
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-blue-600 text-white rounded-2xl mx-auto flex items-center justify-center font-black text-xl mb-3 shadow-lg shadow-blue-500/30">AS</div>
+                <h2 class="text-2xl font-black text-slate-900">營業稅對帳與統計系統</h2>
+                <p class="text-slate-400 text-xs mt-1">請選擇登入方式以開始使用</p>
+            </div>
 
-        const SALES_LIST = ["Audi", "小蔡", "小楊", "阿扁","其他"];
+            <!-- Google 快捷登入按鈕 -->
+            <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-3 shadow-sm mb-3">
+                <svg class="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.18v3.15C3.16 21.32 7.23 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.6H1.18C.43 8.12 0 9.82 0 12s.43 3.88 1.18 5.4l4.09-3.16z"/>
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.16 2.68 1.18 6.6l4.09 3.15c.95-2.85 3.6-4.96 6.73-4.96z"/>
+                </svg>
+                使用 Google 帳號快速登入
+            </button>
 
-        const SERVICE_TEMPLATES = [
-            "全車頂級車漆保護膜 (PPF)", "全車改色膜施工", "車頭局部防護方案", "迎風面保護膜",
-            "內裝專屬保護膜", "雙層陶瓷深層鍍膜", "前置鍍膜方案一", "前置+後置鍍膜方案二", "全車基礎美容增艷", "精緻手作洗車保養",
-            "玻璃奈米撥水塗層", "輪框專屬保護層", "皮椅深層清潔養護", "其他"
-        ];
+            <!-- 測試人員單機登入按鈕 -->
+            <button onclick="loginAsTester()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border border-slate-200 mb-4 text-xs">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                以測試人員身份登入 (單機測試/僅存本機)
+            </button>
 
+            <div class="relative flex py-2 items-center">
+                <div class="flex-grow border-t border-slate-200"></div>
+                <span class="flex-shrink mx-4 text-slate-400 text-xs font-bold">或使用帳號密碼</span>
+                <div class="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <form id="loginForm" class="space-y-3 mt-2">
+                <div>
+                    <input type="email" id="loginEmail" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="電子郵件">
+                </div>
+                <div>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="密碼">
+                </div>
+                <div id="loginError" class="text-xs text-rose-500 font-bold hidden"></div>
+                <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg">帳號密碼登入</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 頂部頁籤與狀態列 (Navigation) -->
+    <nav class="bg-slate-900 text-slate-400 no-print sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <div class="flex space-x-2 text-sm font-bold">
+                <button onclick="switchTab('tab1')" id="btn-tab1" class="tab-btn active px-5 py-4 flex items-center gap-2 focus:outline-none">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    昕鎧國際有限公司
+                </button>
+                <button onclick="switchTab('tab2')" id="btn-tab2" class="tab-btn px-5 py-4 flex items-center gap-2 focus:outline-none">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    震峰有限公司
+                </button>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <span id="userEmailDisplay" class="text-slate-300 font-bold hidden md:inline"></span>
+                <button onclick="logout()" class="bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg transition-all">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- ==================== 分頁 1：昕鎧國際有限公司 ==================== -->
+        <div id="tab1" class="tab-content print-active">
+            <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        昕鎧國際有限公司 
+                        <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-md font-normal">統編 00032793</span>
+                    </h1>
+                    <p class="text-slate-500 mt-1 flex items-center gap-2 text-sm">
+                        <span id="syncDot1" class="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> 
+                        <span id="syncStatus1">載入中...</span>
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <select id="typeFilter1" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll1()">
+                        <option value="all">所有類型</option>
+                        <option value="sales">僅看銷項 (收入)</option>
+                        <option value="purchase">僅看進項 (支出)</option>
+                    </select>
+                    <select id="periodFilter1" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll1()">
+                        <option value="all">所有期間</option>
+                        <option value="1">01-02月</option><option value="2">03-04月</option>
+                        <option value="3">05-06月</option><option value="4">07-08月</option>
+                        <option value="5">09-10月</option><option value="6" selected>11-12月</option>
+                    </select>
+                    <button onclick="exportCSV(1)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+                        匯出 Excel 明細
+                    </button>
+                    <button onclick="window.print()" class="bg-[#1e293b] hover:bg-black text-white px-6 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+                        列印/匯出 PDF
+                    </button>
+                </div>
+            </header>
+
+            <!-- 統計卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print text-sm">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
+                    <span id="countSales1" class="absolute top-4 right-4 bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">總銷項(含稅)</p>
+                    <h3 id="statTotalSalesIncl1" class="text-3xl font-black text-blue-600 tracking-tighter">$0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
+                    <span id="countPurchases1" class="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">總進項(含稅)</p>
+                    <h3 id="statTotalPurchasesIncl1" class="text-3xl font-black text-emerald-600 tracking-tighter">$0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <p class="text-slate-400 font-bold mb-1 uppercase">銷項稅額(5%)</p>
+                    <h3 id="statSalesTax1" class="text-3xl font-black text-slate-700 tracking-tighter">$0</h3>
+                    <p class="text-[10px] text-slate-400 mt-2 font-medium">公式：未稅額 × 0.05</p>
+                </div>
+                <div id="payableCard1" class="bg-blue-600 p-6 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden">
+                    <div class="relative z-10">
+                        <p class="text-blue-100 font-bold mb-1 uppercase">本期應納/留抵額</p>
+                        <h3 id="statPayableTax1" class="text-3xl font-black tracking-tighter">$0</h3>
+                        <p id="formulaDisplay1" class="text-[10px] text-blue-200 mt-2 font-bold opacity-90">計算中...</p>
+                    </div>
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full"></div>
+                </div>
+            </div>
+
+            <!-- 上期留抵與快速新增區 -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 no-print">
+                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <label class="block text-xs font-black text-slate-500 mb-2 uppercase">上期留抵額輸入</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                        <input type="number" id="prevOverpayment1" placeholder="0" oninput="savePrevOverpayment(1)" 
+                            class="w-full pl-7 pr-3 py-3 border-2 border-blue-50 rounded-xl text-lg outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                    <form id="taxForm1" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">日期</label>
+                            <input type="date" id="date1" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">發票號碼</label>
+                            <input type="text" id="invoice1" placeholder="例: AB12345678" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">摘要內容 (自動判斷)</label>
+                            <input type="text" id="desc1" placeholder="例: 買車, 施工..." required class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">類型</label>
+                            <select id="type1" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-white font-bold">
+                                <option value="sales">銷項(收入)</option>
+                                <option value="purchase" selected>進項(支出)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-1 flex gap-2">
+                            <div class="flex-1">
+                                <label class="block text-xs font-black text-slate-500 mb-1">含稅總額</label>
+                                <input type="number" id="inclusiveAmount1" placeholder="0" required class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-black">
+                            </div>
+                            <button type="submit" class="bg-blue-600 text-white px-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 flex justify-between text-xs font-bold text-slate-600 shadow-inner">
+                        <div>未稅淨額：<span id="previewNet1" class="font-mono text-slate-900">$0</span></div>
+                        <div class="text-right">5% 營業稅：<span id="previewTax1" class="font-mono text-blue-600">$0</span></div>
+                    </div>
+
+                    <div id="smartReminder1" class="remind-box p-3 rounded-xl hidden">
+                        <p id="reminderTitle1" class="text-xs font-black text-amber-800 mb-1">💡 昕鎧文件核對提醒</p>
+                        <ul id="reminderList1" class="text-[11px] text-amber-700 space-y-1 list-disc list-inside"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 表格主區 -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden no-print mb-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800 text-[10px] font-black text-slate-100 uppercase tracking-widest">
+                                <th class="px-6 py-4 w-32">日期</th>
+                                <th class="px-6 py-4 w-28">發票號碼</th>
+                                <th class="px-6 py-4 w-28">類型</th>
+                                <th class="px-6 py-4">摘要說明 (點擊編輯)</th>
+                                <th class="px-6 py-4 text-right">未稅淨額</th>
+                                <th class="px-6 py-4 text-right">5% 營業稅額</th>
+                                <th class="px-6 py-4 text-right text-blue-300">含稅總額 (點擊編輯)</th>
+                                <th class="px-6 py-4 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTable1" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="print-area-1">
+                <h1 style="text-align:center; font-size: 24px; margin-bottom: 20px;">昕鎧國際有限公司 營業稅統計報表</h1>
+                <table class="print-table" style="width:100%; border: 1px solid black; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #eee;">
+                            <th style="border: 1px solid black; padding: 8px;">日期</th>
+                            <th style="border: 1px solid black; padding: 8px;">發票號碼</th>
+                            <th style="border: 1px solid black; padding: 8px;">類型</th>
+                            <th style="border: 1px solid black; padding: 8px;">摘要</th>
+                            <th style="border: 1px solid black; padding: 8px; text-align: right;">未稅淨額</th>
+                            <th style="border: 1px solid black; padding: 8px; text-align: right;">5% 營業稅額</th>
+                            <th style="border: 1px solid black; padding: 8px; text-align: right;">含稅總計</th>
+                        </tr>
+                    </thead>
+                    <tbody id="printTableBody1"></tbody>
+                </table>
+                <div id="printFooter1" style="margin-top: 20px; font-weight: bold; text-align: right;"></div>
+            </div>
+        </div>
+
+        <!-- ==================== 分頁 2：震峰有限公司 ==================== -->
+        <div id="tab2" class="tab-content hidden">
+            <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">震峰有限公司 - 營業稅統計</h1>
+                    <p class="text-slate-500 mt-1 flex items-center gap-2 text-sm">
+                        <span id="syncDot2" class="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> 
+                        <span id="syncStatus2">載入中...</span>
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <select id="typeFilter2" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll2()">
+                        <option value="all">所有類型</option>
+                        <option value="sales">僅看銷項 (收入)</option>
+                        <option value="purchase">僅看進項 (支出)</option>
+                    </select>
+                    <select id="periodFilter2" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll2()">
+                        <option value="all">所有期間</option>
+                        <option value="1">01-02月</option><option value="2">03-04月</option>
+                        <option value="3">05-06月</option><option value="4">07-08月</option>
+                        <option value="5">09-10月</option><option value="6" selected>11-12月</option>
+                    </select>
+                    <button onclick="exportCSV(2)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+                        匯出 Excel 明細
+                    </button>
+                    <button onclick="window.print()" class="bg-[#1e293b] hover:bg-black text-white px-6 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+                        列印/匯出 PDF
+                    </button>
+                </div>
+            </header>
+
+            <!-- 統計卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print text-sm">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
+                    <span id="countSales2" class="absolute top-4 right-4 bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">總銷項(含稅)</p>
+                    <h3 id="statTotalSalesIncl2" class="text-3xl font-black text-blue-600 tracking-tighter">$0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
+                    <span id="countPurchases2" class="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">總進項(含稅)</p>
+                    <h3 id="statTotalPurchasesIncl2" class="text-3xl font-black text-emerald-600 tracking-tighter">$0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <p class="text-slate-400 font-bold mb-1 uppercase">銷項稅額(5%)</p>
+                    <h3 id="statSalesTax2" class="text-3xl font-black text-slate-700 tracking-tighter">$0</h3>
+                    <p class="text-[10px] text-slate-400 mt-2 font-medium">公式：未稅額 × 0.05</p>
+                </div>
+                <div id="payableCard2" class="bg-blue-600 p-6 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden">
+                    <div class="relative z-10">
+                        <p class="text-blue-100 font-bold mb-1 uppercase">本期應納/留抵額</p>
+                        <h3 id="statPayableTax2" class="text-3xl font-black tracking-tighter">$0</h3>
+                        <p id="formulaDisplay2" class="text-[10px] text-blue-200 mt-2 font-bold opacity-90">計算中...</p>
+                    </div>
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full"></div>
+                </div>
+            </div>
+
+            <!-- 上期留抵與快速新增區 -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 no-print">
+                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <label class="block text-xs font-black text-slate-500 mb-2 uppercase">上期留抵額輸入</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                        <input type="number" id="prevOverpayment2" placeholder="0" oninput="savePrevOverpayment(2)" 
+                            class="w-full pl-7 pr-3 py-3 border-2 border-blue-50 rounded-xl text-lg outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                    <form id="taxForm2" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">日期</label>
+                            <input type="date" id="date2" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">發票號碼</label>
+                            <input type="text" id="invoice2" placeholder="例: AB12345678" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">摘要內容</label>
+                            <input type="text" id="desc2" placeholder="輸入品項..." required class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-black text-slate-500 mb-1">類型</label>
+                            <select id="type2" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-white font-bold">
+                                <option value="sales">銷項(收入)</option>
+                                <option value="purchase">進項(支出)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-1 flex gap-2">
+                            <div class="flex-1">
+                                <label class="block text-xs font-black text-slate-500 mb-1">含稅總額</label>
+                                <input type="number" id="inclusiveAmount2" placeholder="0" required class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-black">
+                            </div>
+                            <button type="submit" class="bg-blue-600 text-white px-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 flex justify-between text-xs font-bold text-slate-600 shadow-inner">
+                        <div>未稅淨額：<span id="previewNet2" class="font-mono text-slate-900">$0</span></div>
+                        <div class="text-right">5% 營業稅：<span id="previewTax2" class="font-mono text-blue-600">$0</span></div>
+                    </div>
+
+                    <div id="smartHint2" class="text-[11px] mt-2 px-1 h-4 font-bold text-slate-400 transition-colors"></div>
+                </div>
+            </div>
+
+            <!-- 表格主區 -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden no-print">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800 text-[10px] font-black text-slate-100 uppercase tracking-widest">
+                                <th class="px-6 py-4 w-32">日期</th>
+                                <th class="px-6 py-4 w-28">發票號碼</th>
+                                <th class="px-6 py-4 w-28">類型</th>
+                                <th class="px-6 py-4">摘要說明 (點擊編輯)</th>
+                                <th class="px-6 py-4 text-right">未稅淨額</th>
+                                <th class="px-6 py-4 text-right">5% 營業稅額</th>
+                                <th class="px-6 py-4 text-right text-blue-300">含稅總額 (點擊編輯)</th>
+                                <th class="px-6 py-4 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTable2" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="print-area-2">
+                <h1 style="text-align:center; font-size: 24px; margin-bottom: 20px;">震峰有限公司 營業稅統計報表</h1>
+                <table class="print-table" style="width:100%; border: 1px solid black; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #eee;">
+                            <th style="border: 1px solid black; padding: 8px;">日期</th>
+                            <th style="border: 1px solid black; padding: 8px;">發票號碼</th>
+                            <th style="border: 1px solid black; padding: 8px;">類型</th>
+                            <th style="border: 1px solid black; padding: 8px;">摘要</th>
+                            <th style="border: 1px solid black; padding: 8px; text-align: right;">未稅淨額</th>
+                            <th style="border: 1px solid black; padding: 8px; text-align: right;">5% 營業稅額</th>
+                            <th style="border: 1px solid black; padding: 8px; text-align: right;">含稅總計</th>
+                        </tr>
+                    </thead>
+                    <tbody id="printTableBody2"></tbody>
+                </table>
+                <div id="printFooter2" style="margin-top: 20px; font-weight: bold; text-align: right;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 邏輯腳本區塊 -->
+    <script>
+        // 初始化 Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyBEgWLZ4_1cCVswkKll6N4yW1O_xoTEGyg",
-            authDomain: "as-taipei-1a211.firebaseapp.com",
-            projectId: "as-taipei-1a211",
-            storageBucket: "as-taipei-1a211.firebasestorage.app",
-            messagingSenderId: "193808418904",
-            appId: "1:193808418904:web:b58e1317b5447b4f44e22d"
+            apiKey: "AIzaSyCh3YueHa9dEHnOiSqSmpgvRs4hSqqe0LE",
+            authDomain: "as-6c510.firebaseapp.com",
+            projectId: "as-6c510",
+            storageBucket: "as-6c510.firebasestorage.app",
+            messagingSenderId: "1085839604733",
+            appId: "1:1085839604733:web:3e792309986813d5b57794"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let isTesterMode = false;
+        let transactions1 = [];
+        let transactions2 = [];
+        let prevOverpayment1 = 0;
+        let prevOverpayment2 = 0;
+
+        window.onload = () => { 
+            document.getElementById('date1').valueAsDate = new Date(); 
+            document.getElementById('date2').valueAsDate = new Date(); 
+
+            if (localStorage.getItem('is_tester_session') === 'true') {
+                loginAsTester();
+            }
         };
 
-        let app, db, auth;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch (e) { console.error("Firebase Init Error:", e); }
+        auth.onAuthStateChanged((user) => {
+            if (user && !isTesterMode) {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('userEmailDisplay').innerText = user.email;
+                updateStatusBadge(true, "雲端同步模式已連線");
+                initCloudSync();
+            } else if (!isTesterMode) {
+                document.getElementById('loginScreen').classList.remove('hidden');
+            }
+        });
 
-        const appId = 'as-taipei-1a211';
-        window.workOrders = [];
-        window.currentMode = 'history';
-        window.currentFormData = {};
-
-        // 使用本地時間初始化查詢月份，避免 UTC 時區偏差造成月份落後
-        const initNow = new Date();
-        window.currentFilterMonth = `${initNow.getFullYear()}-${(initNow.getMonth() + 1).toString().padStart(2, '0')}`;
-
-        const startAuth = async () => {
-            const statusEl = document.getElementById('online-status');
-            try {
-                await signInAnonymously(auth);
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        if (statusEl) statusEl.innerText = "● 雲端同步中";
-                        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'workOrders'), orderBy("updatedAt", "desc"));
-                        onSnapshot(q, (snapshot) => {
-                            window.workOrders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-                            if (window.currentMode === 'history') window.renderHistoryMode();
-                            if (statusEl) statusEl.innerText = "● 雲端連線正常";
-                        }, (error) => { if (statusEl) statusEl.innerText = "● 連線權限異常"; });
-                    }
-                });
-            } catch (err) { if (statusEl) statusEl.innerText = "● 離線模式"; }
-        };
-
-        window.calculateOrderTotal = (o) => {
-            if (!o || !o.serviceItems) return 0;
-            const subtotal = o.serviceItems.reduce((sum, item) => sum + (parseInt(item.price) || 0), 0);
-            const hasTax = o.needsInvoice || o.paymentMethod === '信用卡';
-            const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
-            return subtotal + tax;
-        };
-
-        window.showMessage = (text) => {
-            const el = document.getElementById('ui-message');
-            const txt = document.getElementById('ui-message-text');
-            if (!el || !txt) return;
-            txt.innerText = text; el.classList.remove('hidden');
-            setTimeout(() => el.classList.add('hidden'), 3000);
-        };
-
-        window.handlePrint = () => { 
-            window.print(); 
-        };
-
-        window.setMode = (mode, data = null, isNew = false) => {
-            window.currentMode = mode;
-            if (isNew) {
-                // 100% 本地時區安全：依據當前裝置時區生成，絕不使用 ISOString 避免時差落後一天的 Bug
-                const now = new Date();
-                const localYear = now.getFullYear();
-                const localMonth = (now.getMonth() + 1).toString().padStart(2, '0');
-                const localDay = now.getDate().toString().padStart(2, '0');
-
-                const todayStr = `${localYear}-${localMonth}-${localDay}`; // 當天日期 YYYY-MM-DD
-                const currentMonthPrefix = `${localYear.toString().slice(2)}${localMonth}`; // YYMM 例如 "2607"
-                const fullDateStr = `${localYear.toString().slice(2)}${localMonth}${localDay}`; // YYMMDD 例如 "260715"
-
-                // 2. 嚴格對齊：只篩選 receiveDate 符合當前本地年月份 "YYYY-MM" 的雲端有效案源
-                const targetMonthStr = `${localYear}-${localMonth}`;
-                const monthlyOrders = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(targetMonthStr));
-                
-                // 計算正確的流水號 (列表上顯示幾張，新單就是 +1)
-                const seq = (monthlyOrders.length + 1).toString().padStart(3, '0');
-
-                window.currentFormData = {
-                    id: `AS-${fullDateStr}-${seq}`,
-                    receiveDate: todayStr, deliveryDate: todayStr,
-                    customerName: '', customerPhone: '', licensePlate: '',
-                    carBrand: 'Audi 奧迪', carBrandCustom: '', carModel: 'RS6/RS7', carModelCustom: '',
-                    salesPerson: 'Audi', salesPersonCustom: '', paymentMethod: '現金', needsInvoice: false,
-                    serviceItems: [{ name: '全車頂級車漆保護膜 (PPF)', nameCustom: '', price: 0 }],
-                    notes: '', salesNotes: '', isSigned: false, signatureImage: null
-                };
-            } else if (data) { window.currentFormData = JSON.parse(JSON.stringify(data)); }
-            ['history', 'form', 'quote', 'printPreview'].forEach(m => {
-                const el = document.getElementById(`mode-${m}`);
-                if (el) el.classList.add('hidden');
+        function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch((error) => {
+                const errEl = document.getElementById('loginError');
+                errEl.innerText = "Google 登入失敗：" + error.message;
+                errEl.classList.remove('hidden');
             });
-            if (mode === 'history') window.renderHistoryMode();
-            else if (mode === 'form') window.renderFormMode();
-            else if (mode === 'quote') window.renderQuoteMode();
-            else if (mode === 'printPreview') window.renderPrintPreview();
-            const target = document.getElementById(`mode-${mode}`);
-            if (target) target.classList.remove('hidden');
-            window.scrollTo(0,0);
-        };
+        }
 
-        window.renderPrintPreview = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
-            const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
-            const container = document.getElementById('mode-printPreview');
-            container.innerHTML = `
-                <div class="no-print mb-6 flex flex-col md:flex-row justify-between items-center bg-orange-50 p-6 rounded-3xl border border-orange-200 gap-4">
-                    <div class="flex items-center gap-3"><div class="bg-orange-500 text-white p-2 rounded-xl">📊</div><div><p class="text-orange-950 font-black text-lg">月度營收報表預覽</p><p class="text-xs text-orange-700 font-bold">當月共有 ${filtered.length} 筆案件記錄</p></div></div>
-                    <div class="flex gap-3 w-full md:w-auto"><button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white border-2 border-slate-200 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-50">返回</button><button onclick="window.handlePrint()" class="flex-1 md:flex-none bg-orange-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-700">立即列印</button></div>
-                </div>
-                <div class="print-container bg-white p-8 md:p-12 shadow-2xl border mx-auto mb-10">
-                    <div class="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8 print-header">
-                        <div><h1 class="text-3xl font-black tracking-tighter text-slate-950 mb-1">AS TAIPEI 月度營收明細表</h1><p class="text-slate-500 font-bold text-xs uppercase tracking-widest">Premium Paint Protection Management System</p></div>
-                        <div class="text-right"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">報表月份</p><p class="text-2xl font-black text-slate-900 leading-none">${window.currentFilterMonth}</p><p class="text-[9px] text-slate-400 mt-2 font-medium">製表日期：${new Date().toLocaleDateString()}</p></div>
-                    </div>
-                    <table class="print-report-table">
-                        <thead><tr><th style="width: 12%">單號</th><th style="width: 12%">日期</th><th style="width: 18%">客戶資訊</th><th style="width: 18%">車輛資訊</th><th style="width: 28%">施工項目明細</th><th style="width: 12%; text-align: right;">總計(含稅)</th></tr></thead>
-                        <tbody>${filtered.map(o => {
-                            const itemsText = o.serviceItems.map(it => `• ${it.name === '其他' ? it.nameCustom : it.name}`).join('<br>');
-                            return `<tr><td class="font-bold text-[9px] md:text-xs">${o.id}</td><td>${o.receiveDate}</td><td class="font-bold">${o.customerName}<br><span class="text-[9px] font-normal text-slate-500">${o.customerPhone}</span></td><td class="font-black">${o.licensePlate}<br><span class="text-[9px] font-normal text-slate-500">${o.carBrand}</span></td><td class="text-[10px]">${itemsText}</td><td class="text-right font-black">NT$ ${window.calculateOrderTotal(o).toLocaleString()}</td></tr>`
-                        }).join('')}</tbody>
-                        <tfoot><tr style="background-color: #f8fafc;"><td colspan="5" style="text-align: right; font-weight: 900; font-size: 13px; padding: 15px;">本月合計營收額</td><td style="text-align: right; font-weight: 900; font-size: 16px; color: #ea580c; padding: 15px;">NT$ ${monthlyRevenue.toLocaleString()}</td></tr></tfoot>
-                    </table>
-                </div>
-            `;
-        };
+        function loginAsTester() {
+            isTesterMode = true;
+            localStorage.setItem('is_tester_session', 'true');
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('userEmailDisplay').innerText = "🧪 測試人員 (單機模式)";
+            updateStatusBadge(false, "測試人員單機模式 (僅存本機 LocalStorage)");
+            initLocalSync();
+        }
 
-        window.renderQuoteMode = () => {
-            const d = window.currentFormData;
-            const container = document.getElementById('mode-quote');
-            const subtotal = d.serviceItems.reduce((s, i) => s + (parseInt(i.price)||0), 0);
-            const hasTax = d.needsInvoice || d.paymentMethod === '信用卡';
-            const tax = hasTax ? Math.round(subtotal * 0.05) : 0;
-            const total = subtotal + tax;
+        function updateStatusBadge(isCloud, text) {
+            const dot1 = document.getElementById('syncDot1');
+            const dot2 = document.getElementById('syncDot2');
+            const txt1 = document.getElementById('syncStatus1');
+            const txt2 = document.getElementById('syncStatus2');
 
-            const brandDisplay = d.carBrand === '其他' ? d.carBrandCustom : d.carBrand;
-            const modelDisplay = d.carModel === 'Tailwind' ? d.carModelCustom : d.carModel;
-            const salesDisplay = d.salesPerson === '其他' ? d.salesPersonCustom : d.salesPerson;
+            txt1.innerText = text;
+            txt2.innerText = text;
 
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div class="lg:col-span-3 bg-white p-6 md:p-12 rounded-[3rem] shadow-2xl border-t-[16px] border-orange-500 print-container relative overflow-hidden">
-                        <div class="quote-watermark">AS TAIPEI</div>
-                        
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-slate-100 pb-8 mb-10 gap-6 relative z-10 print-header">
-                            <div>
-                                <h1 class="text-4xl md:text-5xl font-black text-slate-950 tracking-tighter">AS TAIPEI</h1>
-                                <p class="text-[11px] font-black text-orange-600 mt-2 uppercase tracking-[0.2em]">Premium Paint Protection Film Specialist</p>
-                                <p class="text-[10px] text-slate-400 mt-1 font-bold">台北市內湖區民權東路六段15巷35號1樓 | 02-2790-9077</p>
-                            </div>
-                            <div class="bg-slate-50 p-6 rounded-3xl border-2 border-slate-100 text-right">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">施工服務工單 / 報價單</p>
-                                <p class="text-2xl font-black text-slate-900 font-mono tracking-tighter">${d.id}</p>
-                                <p class="text-[10px] text-slate-400 mt-2">建立日期：${new Date().toLocaleDateString()}</p>
-                            </div>
-                        </div>
+            if (isCloud) {
+                dot1.className = "inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse";
+                dot2.className = "inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse";
+            } else {
+                dot1.className = "inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse";
+                dot2.className = "inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse";
+            }
+        }
 
-                        <div class="grid grid-cols-3 gap-y-10 gap-x-6 mb-10 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 relative z-10 print-info-grid">
-                            <div class="space-y-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">客戶姓名</p>
-                                <p class="font-black text-lg text-slate-900">${d.customerName || '-'}</p>
-                            </div>
-                            <div class="space-y-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">聯絡電話</p>
-                                <p class="font-black text-lg text-slate-900">${d.customerPhone || '-'}</p>
-                            </div>
-                            <div class="space-y-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">施工車輛</p>
-                                <div class="flex items-center gap-3">
-                                    <p class="font-black text-lg text-slate-900">${brandDisplay} ${d.carModel==='其他'?d.carModelCustom:d.carModel}</p>
-                                    <span class="bg-slate-900 text-white px-2 py-1 rounded-lg text-[11px] font-mono font-black uppercase tracking-wider">${d.licensePlate || 'N/A'}</span>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">接待人員</p>
-                                <p class="font-black text-lg text-slate-800">${salesDisplay}</p>
-                            </div>
-                            <div class="space-y-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">接車 / 交車日期</p>
-                                <p class="font-black text-base text-slate-800 whitespace-nowrap">${d.receiveDate} <span class="text-slate-300 mx-1 text-sm">→</span> <span class="text-orange-600">${d.deliveryDate}</span></p>
-                            </div>
-                            <div class="space-y-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">付款方式</p>
-                                <p class="font-black text-lg text-slate-800">${d.paymentMethod} <span class="text-[10px] font-bold text-slate-400">${hasTax?'(含稅 5%)':''}</span></p>
-                            </div>
-                        </div>
+        function logout() {
+            if (isTesterMode) {
+                isTesterMode = false;
+                localStorage.removeItem('is_tester_session');
+                document.getElementById('loginScreen').classList.remove('hidden');
+            } else {
+                auth.signOut();
+            }
+        }
 
-                        <!-- 備註區塊：區分一般備註與業務內部備註 -->
-                        <div class="space-y-4 mb-10">
-                            ${d.notes && d.notes.trim() !== '' ? `
-                            <div class="p-6 bg-orange-50/50 rounded-2xl border border-orange-200 border-dashed relative z-10 print-notes">
-                                <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 flex items-center gap-2">📝 備註事項</p>
-                                <p class="font-medium text-slate-700 whitespace-pre-wrap text-sm">${d.notes}</p>
-                            </div>
-                            ` : ''}
-                        </div>
-
-                        <div class="overflow-hidden rounded-[2rem] border-2 border-slate-100 mb-10 shadow-sm relative z-10 print-table-container">
-                            <table class="w-full">
-                                <thead class="bg-slate-900 text-white">
-                                    <tr><th class="p-5 text-left text-xs font-black uppercase tracking-widest">施工服務項目明細</th><th class="p-5 text-right text-xs font-black uppercase tracking-widest">金額 (TWD)</th></tr>
-                                </thead>
-                                <tbody class="divide-y-2 divide-slate-50 font-bold text-slate-700">
-                                    ${d.serviceItems.map(item => `<tr><td class="p-5 text-sm">${item.name === '其他' ? item.nameCustom : item.name}</td><td class="p-5 text-right font-black font-mono text-base">NT$ ${item.price.toLocaleString()}</td></tr>`).join('')}
-                                    ${tax > 0 ? `<tr class="bg-slate-50"><td class="p-5 text-slate-500 text-xs italic font-medium">稅額 / 手續費 (5%)</td><td class="p-5 text-right font-black text-slate-500 text-sm">NT$ ${tax.toLocaleString()}</td></tr>` : ''}
-                                </tbody>
-                                <tfoot class="bg-white border-t-4 border-slate-900">
-                                    <tr><td class="p-6 text-right font-black text-base uppercase tracking-widest text-slate-900">應付金額總計 (Total Amount)</td><td class="p-6 text-right font-black text-4xl tracking-tighter text-slate-950">NT$ ${total.toLocaleString()}</td></tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <div class="flex flex-col gap-10 text-[14px] leading-relaxed border-t-2 border-slate-100 pt-10 text-slate-600 font-medium relative z-10 print-clause">
-                            
-                            <div class="pl-6 border-l-8 border-orange-500 print-no-break">
-                                <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">⚠️ 施工品質驗收標準</h4>
-                                <ul class="space-y-1.5 list-disc list-inside text-slate-700 font-bold">
-                                    <li>車漆保護膜與車漆之間無明顯起泡、無毛髮、無髒物粗顆粒。</li>
-                                    <li>微小顆粒少量存在為施工中環境空氣落塵之正常現象，無法絕對避免。</li>
-                                    <li>在顯眼位置的一手掌範圍內不超過三顆塵粒，且在一米以外距離無法看清漆面塵粒，即符合專業標準。</li>
-                                </ul>
-                            </div>
-
-                            <div class="pl-6 border-l-8 border-blue-500 print-no-break">
-                                <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🛡️ 保護膜養護須知</h4>
-                                <ul class="space-y-1.5 text-slate-700 font-bold">
-                                    <li>1. 48小時嚴禁洗車：施工完畢兩天內請勿洗車，如需清潔請以軟布濕擦。</li>
-                                    <li>2. 官方洗車提示：洗車後請確實將水分擦乾，嚴禁高壓水槍近距離直噴膜面邊緣。</li>
-                                    <li>3. 初期霧感現象：安裝後若有微霧感屬正常過程，視天候約 10 天後恢復高亮。</li>
-                                    <li>4. 專業保養建議：建議每 1-2 個月回廠養護，可延長膜料壽命與撥水效果。</li>
-                                </ul>
-                            </div>
-
-                            <div class="pl-6 border-l-8 border-red-500 print-no-break">
-                                <h4 class="font-black text-slate-950 flex items-center gap-2 mb-2 text-lg">🚫 不在保固服務範圍之事項</h4>
-                                <ul class="space-y-1.5 text-slate-700 font-bold">
-                                    <li>1. 未按時回廠維護：未依規定定期回 AS TAIPEI 進行專業養護者。</li>
-                                    <li>2. 不當洗車與外力：強力水槍直沖邊緣、使用電腦洗車機 or 粗糙海綿。</li>
-                                    <li>3. 環境污染物浸蝕：未及時去除鳥糞、樹汁、蟲屍導致之膜面腐蝕。</li>
-                                    <li>4. 水漬印記：水源中礦物質沉澱形成之水垢印記。</li>
-                                    <li>5. 物理性損傷：碎石擊穿、人為刮傷、事故導致之破損。</li>
-                                    <li>6. 未經授權之加工：非本公司授權之第三方加工 or 撕除膜料者。</li>
-                                </ul>
-                            </div>
-
-                            <!-- AS TAIPEI 官方 LINE 保固啟用認證區塊 (自適應雙通道 QR 圖片支援) -->
-                            <div class="mt-4 p-6 md:p-8 rounded-[2rem] border-2 border-[#a7f3d0] bg-[#f0fdfa] text-center shadow-sm relative overflow-hidden flex flex-col items-center print-no-break card-bg-print">
-                                <h4 class="font-black text-slate-900 text-lg md:text-xl flex items-center justify-center gap-2 mb-3">
-                                    <span class="text-xl">📲</span> AS TAIPEI 官方 LINE 保固啟用認證
-                                </h4>
-                                <p class="text-sm text-slate-600 mb-6 font-bold"><span class="text-red-600 font-extrabold text-[15px]">新客</span>請掃描下方 QR Code 加入官方 LINE 帳號，<span class="text-red-600 font-extrabold text-[15px]">加入後請拍下您的「紙本保固卡」發送給我們</span>以啟用線上電子保固。</p>
-                                <div class="bg-white p-4 rounded-3xl inline-block border border-emerald-100 shadow-inner mb-4">
-                                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-md mb-5 inline-block">
-                                    <img id="invoice-line-qr" src="L_gainfriends_2dbarcodes_BW.png" onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https%3A%2F%2Fline.me%2FR%2Fti%2Fp%2F%40as7778';" alt="Official LINE QR Code" class="w-36 h-36 md:w-40 md:h-40 object-contain mx-auto">
-                                </div>
-                                <p class="text-xs md:text-sm text-[#065f46] font-extrabold tracking-wider">
-                                    LINE 搜尋 ID: <span class="underline">@as7778</span> (加入後請發送愛車車牌與紙本保固卡照片)
-                                </p>
-                            </div>
-
-                            <div class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 shadow-sm mt-4 print-no-break">
-                                <h4 class="font-black text-slate-950 mb-6 text-center tracking-widest uppercase text-xs">客戶確認簽名 (Client Confirmation)</h4>
-                                <div class="bg-slate-50 rounded-2xl border-2 border-slate-200 h-40 overflow-hidden relative shadow-inner">
-                                    ${d.isSigned ? `<img src="${d.signatureImage}" class="h-full mx-auto object-contain">` : `<canvas id="sig-canvas" class="signature-canvas w-full h-full"></canvas>`}
-                                </div>
-                                <div class="flex gap-2 mt-4 no-print">
-                                    ${!d.isSigned ? `<button onclick="window.saveSig()" class="flex-[2] bg-slate-950 text-white py-3 rounded-xl font-black text-sm shadow-lg">確認簽名</button>` : ''}
-                                    <button onclick="window.clearSig()" class="flex-1 bg-white border border-slate-200 text-slate-400 py-3 rounded-xl font-bold text-xs hover:bg-slate-50">重置</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 調整為置中並縮小的「服務代表簽署」與「公司用印章」 -->
-                        <div class="mt-10 pt-6 border-t-2 border-slate-950 border-opacity-5 flex flex-row justify-center items-center gap-12 relative z-10 print-footer print-no-break text-center">
-                            <div class="flex flex-col items-center">
-                                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2">服務代表簽署</p>
-                                <p class="text-xl font-black italic text-slate-950 tracking-tighter border-b border-slate-200 pb-1 px-4">${salesDisplay}</p>
-                            </div>
-                            <div class="flex flex-col items-center">
-                                <div class="w-20 h-20 border-2 border-orange-100 rounded-full flex items-center justify-center mb-1 relative">
-                                    <div class="text-[7px] font-black text-orange-200 transform -rotate-12 leading-tight">AS TAIPEI SEAL</div>
-                                    <div class="absolute inset-0 border-2 border-orange-50 rounded-full m-0.5"></div>
-                                </div>
-                                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">公司用印章</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="no-print space-y-4">
-                        <button onclick="window.saveToCloud(window.currentFormData)" class="w-full bg-orange-500 text-white py-6 rounded-[2.5rem] font-black text-xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">✅ 儲存雲端工單</button>
-                        <button onclick="window.handlePrint()" class="w-full bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl shadow-xl active:scale-95 transition-all">🖨️ 列印此單據</button>
-                        <button onclick="window.setMode('form')" class="w-full bg-white text-slate-500 py-4 rounded-2xl font-bold border-2 hover:bg-slate-50 transition-all">返回修改內容</button>
-                    </div>
-                </div>
-            `;
-            if(!d.isSigned) setTimeout(initSig, 150);
-        };
-
-        window.renderHistoryMode = () => {
-            const filtered = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth));
-            const monthlyRevenue = filtered.reduce((sum, o) => sum + window.calculateOrderTotal(o), 0);
-            document.getElementById('mode-history').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 no-print">
-                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm">
-                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">選擇查詢月份</p>
-                        <input type="month" value="${window.currentFilterMonth}" onchange="window.currentFilterMonth=this.value;window.renderHistoryMode();" class="w-full p-3 border-2 rounded-xl font-bold focus:border-orange-500 outline-none">
-                    </div>
-                    <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl text-white"><p class="text-[10px] font-black text-slate-400 mb-1">案件量</p><p class="text-4xl font-black text-orange-500">${filtered.length} <span class="text-sm text-white">件</span></p></div>
-                    <div class="bg-orange-500 p-6 rounded-[2rem] shadow-xl text-white"><p class="text-[10px] font-black text-white/70 mb-1">總營收 (含稅)</p><p class="text-3xl font-black">NT$ ${monthlyRevenue.toLocaleString()}</p></div>
-                    <div class="bg-white p-6 rounded-[2rem] border shadow-sm flex flex-col justify-center gap-2">
-                        <button onclick="window.exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all">📊 匯出 Excel</button>
-                        <button onclick="window.setMode('printPreview')" class="bg-slate-700 hover:bg-slate-800 text-white p-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all">🖨️ 列印報表預覽</button>
-                    </div>
-                </div>
-                <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden no-print">
-                    <table class="w-full text-left responsive-table">
-                        <thead class="bg-slate-50 border-b"><tr><th class="p-6 text-xs font-bold text-slate-400">單號 / 日期</th><th class="p-6 text-xs font-bold text-slate-400">客戶 / 車輛</th><th class="p-6 text-xs font-bold text-slate-400">明細 / 總額</th><th class="p-6 text-right text-xs font-bold text-slate-400">操作</th></tr></thead>
-                        <tbody class="divide-y">
-                            ${filtered.length === 0 ? '<tr><td colspan="4" class="p-10 text-center text-slate-400 font-bold">本月尚無工單紀錄</td></tr>' : filtered.map(o => {
-                                const total = window.calculateOrderTotal(o);
-                                return `<tr class="hover:bg-slate-50 transition-colors"><td class="p-6 align-top"><span class="font-black text-orange-600 text-lg">${o.id}</span><br><span class="text-xs text-slate-400 font-medium">${o.receiveDate}</span></td><td class="p-6 align-top"><div class="font-black text-slate-800 text-lg">${o.customerName} <span class="text-slate-400 text-sm font-normal">(${o.customerPhone || '-'})</span></div><div class="font-black text-slate-700 uppercase text-xl">${o.licensePlate}</div><div class="text-xs text-slate-500 font-bold">${o.carBrand} ${o.carModel}</div></td><td class="p-6 align-top"><div class="text-[11px] text-slate-600 space-y-1 mb-2 bg-slate-50 p-3 rounded-xl border border-slate-100">${o.serviceItems.map(it => `• ${it.name === '其他' ? it.nameCustom : it.name}`).join('')}</div><div class="flex items-baseline gap-2"><span class="font-black text-slate-900 text-2xl">NT$ ${total.toLocaleString()}</span></div></td><td class="p-6 text-right align-top"><div class="flex justify-end items-center gap-4 mt-2"><button onclick='window.setMode("quote", ${JSON.stringify(o).replace(/"/g, '&quot;')})' class="bg-slate-900 hover:bg-slate-800 text-white text-sm py-2.5 px-6 rounded-xl font-black transition-all">查看</button><button onclick="window.deleteFromCloud('${o.id}')" class="text-red-400 hover:text-red-600 transition-colors p-2 text-2xl font-light">✕</button></div></td></tr>`;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        };
-
-        window.renderFormMode = () => {
-            const container = document.getElementById('mode-form');
-            container.innerHTML = `
-                <div class="bg-white p-6 md:p-10 rounded-[3rem] border shadow-xl space-y-10 no-print">
-                    <div class="flex items-center gap-4 border-b pb-8"><h2 class="text-3xl font-black text-slate-900">服務工單填寫</h2></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">客戶姓名</label><input type="text" id="f-customerName" value="${window.currentFormData.customerName}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">聯絡電話</label><input type="tel" id="f-customerPhone" value="${window.currentFormData.customerPhone}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">車牌號碼</label><input type="text" id="f-licensePlate" value="${window.currentFormData.licensePlate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-black uppercase focus:ring-2 ring-orange-500 outline-none"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">結帳方式</label><select id="f-paymentMethod" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">${["現金", "信用卡", "匯款"].map(p => `<option value="${p}" ${window.currentFormData.paymentMethod===p?'selected':''}>${p}</option>`).join('')}</select></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">汽車品牌</label><select id="f-carBrand" onchange="window.toggleCustomInput('carBrand', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">${Object.keys(CAR_DATABASE).map(b => `<option value="${b}" ${window.currentFormData.carBrand===b?'selected':''}>${b}</option>`).join('')}</select><input type="text" id="f-carBrandCustom" value="${window.currentFormData.carBrandCustom||''}" placeholder="手寫輸入品牌" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.carBrand==='其他'?'':'hidden'}"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">型號</label><select id="f-carModel" onchange="window.toggleCustomInput('carModel', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none"></select><input type="text" id="f-carModelCustom" value="${window.currentFormData.carModelCustom||''}" placeholder="手寫輸入型號" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.carModel==='其他'?'':'hidden'}"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">接待人員</label><select id="f-salesPerson" onchange="window.toggleCustomInput('salesPerson', this.value)" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold appearance-none">${SALES_LIST.map(s => `<option value="${s}" ${window.currentFormData.salesPerson===s?'selected':''}>${s}</option>`).join('')}</select><input type="text" id="f-salesPersonCustom" value="${window.currentFormData.salesPersonCustom||''}" placeholder="輸入接待名字" class="w-full p-4 mt-2 bg-orange-50 border-orange-200 border rounded-2xl font-bold ${window.currentFormData.salesPerson==='其他'?'':'hidden'}"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">接車日期</label><input type="date" id="f-receiveDate" value="${window.currentFormData.receiveDate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
-                        <div class="space-y-1"><label class="text-[10px] font-black text-slate-400 uppercase">交車日期</label><input type="date" id="f-deliveryDate" value="${window.currentFormData.deliveryDate}" class="w-full p-4 bg-slate-50 border rounded-2xl font-bold"></div>
-                        <div class="flex items-center gap-4 p-4 bg-slate-50 border rounded-2xl mt-4 cursor-pointer" onclick="const ck=document.getElementById('f-needsInvoice');ck.checked=!ck.checked"><input type="checkbox" id="f-needsInvoice" ${window.currentFormData.needsInvoice?'checked':''} class="w-6 h-6 rounded border-slate-300 text-orange-500 focus:ring-orange-500" onclick="event.stopPropagation()"><label class="font-black text-slate-700 select-none">需開發票 (+5%)</label></div>
-                    </div>
-                    
-                    <!-- 拆分後的備註事項區塊 -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black text-slate-400 uppercase">一般備註 (客戶可見，會列印在單據上)</label>
-                            <textarea id="f-notes" rows="3" placeholder="輸入會顯示在單據上的備註事項..." class="w-full p-4 bg-slate-50 border rounded-2xl font-bold focus:ring-2 ring-orange-500 outline-none resize-none">${window.currentFormData.notes || ''}</textarea>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1"><span>💼</span> 業務內部備註 (僅限內部查看，列印時自動隱藏)</label>
-                            <textarea id="f-salesNotes" rows="3" placeholder="輸入僅限內部查看的商務備註或施工細部利潤資訊..." class="w-full p-4 bg-blue-50/50 border border-blue-100 rounded-2xl font-bold focus:ring-2 ring-blue-500 outline-none resize-none">${window.currentFormData.salesNotes || ''}</textarea>
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-50 p-6 rounded-[2.5rem] border"><h3 class="font-black mb-6 text-xl text-slate-900">服務項目明細</h3><div id="items-container" class="space-y-4"></div><button type="button" onclick="window.addItem()" class="mt-6 w-full py-5 border-2 border-dashed border-slate-300 rounded-2xl text-slate-400 font-bold hover:bg-white hover:text-orange-500 transition-all">+ 新增服務項目</button></div>
-                    <button id="btn-next" class="w-full bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl transition-all">確認內容並預覽單據</button>
-                </div>
-            `;
-            window.fillModels(window.currentFormData.carBrand);
-            window.renderItems();
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errEl = document.getElementById('loginError');
             
-            document.getElementById('btn-next').onclick = () => {
-                Object.assign(window.currentFormData, {
-                    customerName: document.getElementById('f-customerName').value,
-                    customerPhone: document.getElementById('f-customerPhone').value,
-                    licensePlate: document.getElementById('f-licensePlate').value.toUpperCase(),
-                    paymentMethod: document.getElementById('f-paymentMethod').value,
-                    carBrand: document.getElementById('f-carBrand').value,
-                    carBrandCustom: document.getElementById('f-carBrandCustom').value,
-                    carModel: document.getElementById('f-carModel').value,
-                    carModelCustom: document.getElementById('f-carModelCustom').value,
-                    salesPerson: document.getElementById('f-salesPerson').value,
-                    salesPersonCustom: document.getElementById('f-salesPersonCustom').value,
-                    receiveDate: document.getElementById('f-receiveDate').value,
-                    deliveryDate: document.getElementById('f-deliveryDate').value,
-                    needsInvoice: document.getElementById('f-needsInvoice').checked,
-                    notes: document.getElementById('f-notes').value,
-                    salesNotes: document.getElementById('f-salesNotes').value
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    errEl.innerText = "登入失敗：" + error.message;
+                    errEl.classList.remove('hidden');
                 });
-                window.setMode('quote');
+        });
+
+        function initCloudSync() {
+            db.collection('xinkai_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
+                transactions1 = [];
+                snapshot.forEach((doc) => transactions1.push({ id: doc.id, ...doc.data() }));
+                renderAll1();
+            });
+
+            db.collection('settings').doc('xinkai').get().then((doc) => {
+                if (doc.exists) {
+                    prevOverpayment1 = doc.data().prevOverpayment || 0;
+                    document.getElementById('prevOverpayment1').value = prevOverpayment1 || '';
+                    renderAll1();
+                }
+            });
+
+            db.collection('zhenfeng_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
+                transactions2 = [];
+                snapshot.forEach((doc) => transactions2.push({ id: doc.id, ...doc.data() }));
+                renderAll2();
+            });
+
+            db.collection('settings').doc('zhenfeng').get().then((doc) => {
+                if (doc.exists) {
+                    prevOverpayment2 = doc.data().prevOverpayment || 0;
+                    document.getElementById('prevOverpayment2').value = prevOverpayment2 || '';
+                    renderAll2();
+                }
+            });
+        }
+
+        function initLocalSync() {
+            transactions1 = JSON.parse(localStorage.getItem('tester_xinkai_data')) || [];
+            prevOverpayment1 = parseFloat(localStorage.getItem('tester_xinkai_prev')) || 0;
+            document.getElementById('prevOverpayment1').value = prevOverpayment1 || '';
+
+            transactions2 = JSON.parse(localStorage.getItem('tester_zhenfeng_data')) || [];
+            prevOverpayment2 = parseFloat(localStorage.getItem('tester_zhenfeng_prev')) || 0;
+            document.getElementById('prevOverpayment2').value = prevOverpayment2 || '';
+
+            renderAll1();
+            renderAll2();
+        }
+
+        function savePrevOverpayment(tabNum) {
+            if (tabNum === 1) {
+                prevOverpayment1 = parseFloat(document.getElementById('prevOverpayment1').value) || 0;
+                if (isTesterMode) {
+                    localStorage.setItem('tester_xinkai_prev', prevOverpayment1);
+                } else {
+                    db.collection('settings').doc('xinkai').set({ prevOverpayment: prevOverpayment1 });
+                }
+                renderAll1();
+            } else {
+                prevOverpayment2 = parseFloat(document.getElementById('prevOverpayment2').value) || 0;
+                if (isTesterMode) {
+                    localStorage.setItem('tester_zhenfeng_prev', prevOverpayment2);
+                } else {
+                    db.collection('settings').doc('zhenfeng').set({ prevOverpayment: prevOverpayment2 });
+                }
+                renderAll2();
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+                el.classList.remove('print-active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            const target = document.getElementById(tabId);
+            target.classList.remove('hidden');
+            target.classList.add('print-active');
+
+            if(tabId === 'tab1') {
+                document.getElementById('btn-tab1').classList.add('active');
+                renderAll1();
+            } else {
+                document.getElementById('btn-tab2').classList.add('active');
+                renderAll2();
+            }
+        }
+
+        function exportCSV(tabNum) {
+            const companyName = tabNum === 1 ? '昕鎧國際有限公司' : '震峰有限公司';
+            const data = tabNum === 1 ? transactions1 : transactions2;
+            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
+            const tFilter = document.getElementById(`typeFilter${tabNum}`).value;
+
+            let filtered = data;
+            if (pFilter !== 'all') filtered = filtered.filter(t => t.period == pFilter);
+            if (tFilter !== 'all') filtered = filtered.filter(t => t.type === tFilter);
+
+            if (filtered.length === 0) {
+                alert('目前沒有資料可供匯出！');
+                return;
+            }
+
+            let csvContent = "\uFEFF日期,發票號碼,類型,摘要說明,未稅淨額,5%營業稅額,含稅總額\n";
+            filtered.forEach(t => {
+                const exAmt = Math.round(t.total / 1.05);
+                const taxAmt = t.total - exAmt;
+                const typeText = t.type === 'sales' ? '銷項收入' : '進項支出';
+                const safeDesc = `"${(t.desc || '').replace(/"/g, '""')}"`;
+                const safeInv = t.invoice || '';
+                csvContent += `${t.date},${safeInv},${typeText},${safeDesc},${exAmt},${taxAmt},${t.total}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${companyName}_營業稅對帳明細_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+        }
+
+        /* ==================== 分頁 1 邏輯 ==================== */
+        const ui1 = {
+            desc: document.getElementById('desc1'),
+            invoice: document.getElementById('invoice1'),
+            type: document.getElementById('type1'),
+            inclusiveAmount: document.getElementById('inclusiveAmount1'),
+            previewNet: document.getElementById('previewNet1'),
+            previewTax: document.getElementById('previewTax1'),
+            reminder: document.getElementById('smartReminder1'),
+            reminderList: document.getElementById('reminderList1')
+        };
+
+        ui1.inclusiveAmount.addEventListener('input', (e) => {
+            const total = parseFloat(e.target.value) || 0;
+            const net = Math.round(total / 1.05);
+            ui1.previewNet.innerText = '$' + net.toLocaleString();
+            ui1.previewTax.innerText = '$' + (total - net).toLocaleString();
+        });
+
+        ui1.desc.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (!val) { ui1.reminder.classList.add('hidden'); return; }
+            const lowerVal = val.toLowerCase();
+            const pKeys = ['買', '購', '進', '成本', '收購', '修', '油', '件', '零件', '藥劑', '海綿', '膜料', '刮板', '租金', '薪資', '水電'];
+            const sKeys = ['賣', '售', '銷', '施工', '收入', '鍍膜', '包膜工程', '洗車', '服務費', '佣金'];
+            let detectedType = ui1.type.value;
+            if (pKeys.some(k => lowerVal.includes(k))) detectedType = 'purchase';
+            else if (sKeys.some(k => lowerVal.includes(k))) detectedType = 'sales';
+            ui1.type.value = detectedType;
+        });
+
+        document.getElementById('taxForm1').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const date = document.getElementById('date1').value || new Date().toISOString().slice(0, 10);
+            const total = parseFloat(ui1.inclusiveAmount.value) || 0;
+            const exAmount = Math.round(total / 1.05);
+            const newEntry = {
+                id: isTesterMode ? Date.now().toString() : undefined,
+                date: date,
+                invoice: ui1.invoice.value.trim().toUpperCase(),
+                period: Math.ceil((new Date(date).getMonth() + 1) / 2),
+                type: ui1.type.value,
+                desc: ui1.desc.value,
+                total: total,
+                amount: exAmount,
+                tax: total - exAmount
             };
+
+            if (isTesterMode) {
+                transactions1.unshift(newEntry);
+                localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
+                renderAll1();
+            } else {
+                newEntry.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                db.collection('xinkai_transactions').add(newEntry);
+            }
+
+            e.target.reset();
+            ui1.previewNet.innerText = '$0';
+            ui1.previewTax.innerText = '$0';
+            ui1.reminder.classList.add('hidden');
+        });
+
+        function renderAll1() {
+            const pFilter = document.getElementById('periodFilter1').value;
+            const tFilter = document.getElementById('typeFilter1').value;
+            let displayData = transactions1;
+            if (pFilter !== 'all') displayData = displayData.filter(t => t.period == pFilter);
+            if (tFilter !== 'all') displayData = displayData.filter(t => t.type === tFilter);
+            
+            updateStats1(displayData);
+
+            const tbody = document.getElementById('dataTable1');
+            const ptbody = document.getElementById('printTableBody1');
+            tbody.innerHTML = '';
+            ptbody.innerHTML = '';
+
+            displayData.forEach(t => {
+                const isS = t.type === 'sales';
+                const exAmt = Math.round(t.total / 1.05);
+                const taxAmt = t.total - exAmt;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4"><input type="date" value="${t.date}" onchange="updateRowField(1, '${t.id}', 'date', this.value)" class="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-1 focus:ring-blue-400 rounded"></td>
+                        <td class="px-6 py-4 editable-cell font-mono text-xs font-bold text-slate-700" onclick="startEdit(this, 1, '${t.id}', 'invoice')">${t.invoice || '-'}</td>
+                        <td class="px-6 py-4">
+                            <select onchange="updateRowField(1, '${t.id}', 'type', this.value)" class="bg-transparent border-none text-[10px] font-black tracking-widest ${isS?'text-blue-600':'text-emerald-600'}">
+                                <option value="sales" ${isS?'selected':''}>銷項收入</option>
+                                <option value="purchase" ${!isS?'selected':''}>進項支出</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 editable-cell font-bold text-slate-800" onclick="startEdit(this, 1, '${t.id}', 'desc')">${t.desc}</td>
+                        <td class="px-6 py-4 text-right font-mono text-slate-500">$${exAmt.toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right font-mono text-slate-500">$${taxAmt.toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right editable-cell font-black text-slate-900 bg-slate-50/50" onclick="startEdit(this, 1, '${t.id}', 'total', 'number')">$${Math.round(t.total).toLocaleString()}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="deleteEntry(1, '${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                ptbody.innerHTML += `
+                    <tr>
+                        <td style="border: 1px solid black; padding: 5px;">${t.date}</td>
+                        <td style="border: 1px solid black; padding: 5px;">${t.invoice || '-'}</td>
+                        <td style="border: 1px solid black; padding: 5px;">${isS?'銷項':'進項'}</td>
+                        <td style="border: 1px solid black; padding: 5px;">${t.desc}</td>
+                        <td style="border: 1px solid black; padding: 5px; text-align:right;">$${exAmt.toLocaleString()}</td>
+                        <td style="border: 1px solid black; padding: 5px; text-align:right;">$${taxAmt.toLocaleString()}</td>
+                        <td style="border: 1px solid black; padding: 5px; text-align:right;">$${Math.round(t.total).toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateStats1(data) {
+            let sIncl = 0, pIncl = 0, sTax = 0, pTax = 0, sCount = 0, pCount = 0;
+            data.forEach(t => {
+                const total = Number(t.total) || 0;
+                const tax = Number(t.tax) || (total - Math.round(total / 1.05));
+                if (t.type === 'sales') { sIncl += total; sTax += tax; sCount++; }
+                else { pIncl += total; pTax += tax; pCount++; }
+            });
+
+            document.getElementById('statTotalSalesIncl1').innerText = '$' + Math.round(sIncl).toLocaleString();
+            document.getElementById('statTotalPurchasesIncl1').innerText = '$' + Math.round(pIncl).toLocaleString();
+            document.getElementById('statSalesTax1').innerText = '$' + Math.round(sTax).toLocaleString();
+            document.getElementById('countSales1').innerText = sCount + ' 筆';
+            document.getElementById('countPurchases1').innerText = pCount + ' 筆';
+            
+            const payable = sTax - pTax - prevOverpayment1;
+            const pEl = document.getElementById('statPayableTax1');
+            const cardEl = document.getElementById('payableCard1');
+            
+            pEl.innerText = '$' + Math.round(Math.abs(payable)).toLocaleString() + (payable >= 0 ? ' (應納)' : ' (留抵)');
+            document.getElementById('formulaDisplay1').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(prevOverpayment1)})`;
+            cardEl.className = payable >= 0 ? "bg-rose-600 p-6 rounded-2xl shadow-lg border border-rose-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-6 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
+
+            document.getElementById('printFooter1').innerHTML = `
+                銷項稅額: ${Math.round(sTax).toLocaleString()} | 進項稅額: ${Math.round(pTax).toLocaleString()} | 上期留抵: ${Math.round(prevOverpayment1).toLocaleString()} <br>
+                <span style="font-size: 1.2em;">本期結算: ${Math.round(Math.abs(payable)).toLocaleString()} ${payable >= 0 ? '(應納)' : '(留抵)'}</span>
+            `;
+        }
+
+        /* ==================== 分頁 2 邏輯 ==================== */
+        const keywords2 = {
+            sales: ['洗車', '鍍膜', '美容', '打蠟', '內裝', '皮革', '除臭', '除鐵粉', '拋光', '鍍鉻', '貼膜', '包膜', '犀牛皮', '改色', '隔熱紙', '燈膜', 'PPF', '收入', '服務費', '工資', '尾款', '訂金', '開發票', '洗車券'],
+            purchase: ['藥水', '海綿', '毛巾', '蠟', '鍍膜液', '洗車精', '柏油', '鐵粉', '拋光盤', '機器修繕', '高壓水槍', '吸塵器', '空壓機', '膜料', '膠水', '刮板', '美工刀', '熱風槍', '酒精', '3M', 'Avery', 'Oracal', '進貨', '耗材', '租金', '房租', '水費', '電費', '薪資', '加油', '廣告', 'Facebook']
         };
 
-        window.toggleCustomInput = (field, val) => { const input = document.getElementById(`f-${field}Custom`); if (input) { if (val === '其他') input.classList.remove('hidden'); else input.classList.add('hidden'); } if (field === 'carBrand') window.fillModels(val); };
-        window.fillModels = (brand) => { const sel = document.getElementById('f-carModel'); if(!sel) return; const models = CAR_DATABASE[brand] || []; sel.innerHTML = models.map(m => `<option value="${m}" ${window.currentFormData.carModel===m?'selected':''}>${m}</option>`).join('') + `<option value="其他">其他</option>`; window.toggleCustomInput('carModel', sel.value); };
-        window.renderItems = () => { document.getElementById('items-container').innerHTML = window.currentFormData.serviceItems.map((it, i) => `<div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl border shadow-sm relative"><div class="flex-grow space-y-2"><select onchange="window.toggleItemCustom(${i}, this.value)" class="w-full p-4 bg-slate-50 border rounded-xl font-bold appearance-none">${SERVICE_TEMPLATES.map(t => `<option value="${t}" ${it.name===t?'selected':''}>${t}</option>`).join('')}</select><input type="text" id="it-custom-${i}" value="${it.nameCustom||''}" placeholder="手寫輸入服務項目" oninput="window.updItem(${i}, 'nameCustom', this.value)" class="w-full p-4 bg-orange-50 border-orange-100 border rounded-xl font-bold ${it.name==='其他'?'':'hidden'}"></div><div class="flex items-center gap-3"><span class="text-xs font-bold text-slate-400">NT$</span><input type="number" value="${it.price}" placeholder="金額" oninput="window.updItem(${i}, 'price', this.value)" class="flex-grow md:w-40 p-4 bg-slate-50 border rounded-xl font-black text-right text-orange-600"><button onclick="window.removeItem(${i})" class="text-slate-300 hover:text-red-500 p-2 text-2xl">✕</button></div></div>`).join(''); };
-        window.toggleItemCustom = (i, val) => { window.currentFormData.serviceItems[i].name = val; window.renderItems(); };
-        window.updItem = (i, k, v) => { window.currentFormData.serviceItems[i][k] = (k==='price' ? parseInt(v)||0 : v); };
-        window.addItem = () => { window.currentFormData.serviceItems.push({name:'其他', nameCustom:'', price:0}); window.renderItems(); };
-        window.removeItem = (i) => { window.currentFormData.serviceItems.splice(i,1); window.renderItems(); };
+        const descInput2 = document.getElementById('desc2');
+        const invoiceInput2 = document.getElementById('invoice2');
+        const typeSelect2 = document.getElementById('type2');
+        const hintEl2 = document.getElementById('smartHint2');
+        const inclusiveAmount2 = document.getElementById('inclusiveAmount2');
 
-        let sigC, sigX, drawing = false;
-        const initSig = () => {
-            sigC = document.getElementById('sig-canvas'); if(!sigC) return;
-            sigX = sigC.getContext('2d');
-            sigC.width = sigC.offsetWidth; sigC.height = sigC.offsetHeight;
-            sigX.strokeStyle = "#0f172a"; sigX.lineWidth = 4; sigX.lineCap = "round";
-            const getP = (e) => { const r = sigC.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: (ev.clientX - r.left) * (sigC.width / r.width), y: (ev.clientY - r.top) * (sigC.height / r.height) }; };
-            const s = (e) => { drawing=true; const p=getP(e); sigX.beginPath(); sigX.moveTo(p.x, p.y); };
-            const m = (e) => { if(!drawing) return; const p=getP(e); sigX.lineTo(p.x, p.y); sigX.stroke(); };
-            sigC.addEventListener('mousedown', s); sigC.addEventListener('mousemove', m); window.addEventListener('mouseup', ()=>drawing=false);
-            sigC.addEventListener('touchstart', (e)=>{e.preventDefault(); s(e);}, {passive:false}); sigC.addEventListener('touchmove', (e)=>{e.preventDefault(); m(e);}, {passive:false});
-        };
-        window.saveSig = () => { const c = document.getElementById('sig-canvas'); if(!c) return; window.currentFormData.signatureImage = c.toDataURL(); window.currentFormData.isSigned = true; window.renderQuoteMode(); };
-        window.clearSig = () => { window.currentFormData.isSigned = false; window.currentFormData.signatureImage = null; window.renderQuoteMode(); };
+        inclusiveAmount2.addEventListener('input', (e) => {
+            const total = parseFloat(e.target.value) || 0;
+            const net = Math.round(total / 1.05);
+            document.getElementById('previewNet2').innerText = '$' + net.toLocaleString();
+            document.getElementById('previewTax2').innerText = '$' + (total - net).toLocaleString();
+        });
 
-        window.saveToCloud = async (orderData) => {
-            if (!auth || !auth.currentUser) { window.showMessage("尚未連線"); return; }
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', orderData.id);
-            try { await setDoc(docRef, { ...JSON.parse(JSON.stringify(orderData)), updatedAt: serverTimestamp() }, { merge: true }); window.showMessage("儲存成功"); window.setMode('history'); } catch (e) { window.showMessage("儲存失敗"); }
-        };
-        window.deleteFromCloud = (id) => { window.pendingDeleteId = id; document.getElementById('custom-confirm-modal').classList.remove('hidden'); };
-        window.executeDelete = async () => { const id = window.pendingDeleteId; document.getElementById('custom-confirm-modal').classList.add('hidden'); if (!id || !auth.currentUser) return; try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'workOrders', id)); window.showMessage("工單已刪除"); } catch (e) { window.showMessage("刪除失敗"); } };
-        window.exportExcel = () => { const data = window.workOrders.filter(o => o.receiveDate && o.receiveDate.startsWith(window.currentFilterMonth)).map(o => ({ "單號": o.id, "日期": o.receiveDate, "客戶": o.customerName, "車牌": o.licensePlate, "品牌": o.carBrand, "接待": o.salesPerson, "總額(含稅)": window.calculateOrderTotal(o) })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "月報表"); XLSX.writeFile(wb, `AS_TAIPEI_${window.currentFilterMonth}.xlsx`); };
+        descInput2.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (!val) { hintEl2.innerText = ""; return; }
+            const upperVal = val.toUpperCase();
+            if (keywords2.sales.some(k => upperVal.includes(k.toUpperCase()))) {
+                typeSelect2.value = 'sales';
+                hintEl2.innerText = "💡 自動判定：銷項(收入)";
+                hintEl2.style.color = "#2563eb";
+            } else if (keywords2.purchase.some(k => upperVal.includes(k.toUpperCase()))) {
+                typeSelect2.value = 'purchase';
+                hintEl2.innerText = "💡 自動判定：進項(支出)";
+                hintEl2.style.color = "#059669";
+            } else { hintEl2.innerText = ""; }
+        });
 
-        startAuth(); window.addEventListener('load', () => window.setMode('history'));
+        document.getElementById('taxForm2').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const date = document.getElementById('date2').value || new Date().toISOString().slice(0, 10);
+            const total = parseFloat(inclusiveAmount2.value) || 0;
+            const exAmount = Math.round(total / 1.05);
+            const newEntry = {
+                id: isTesterMode ? Date.now().toString() : undefined,
+                date: date,
+                invoice: invoiceInput2.value.trim().toUpperCase(),
+                period: Math.ceil((new Date(date).getMonth() + 1) / 2),
+                type: typeSelect2.value,
+                desc: descInput2.value,
+                total: total,
+                amount: exAmount,
+                tax: total - exAmount
+            };
+
+            if (isTesterMode) {
+                transactions2.unshift(newEntry);
+                localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
+                renderAll2();
+            } else {
+                newEntry.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                db.collection('zhenfeng_transactions').add(newEntry);
+            }
+
+            e.target.reset();
+            document.getElementById('previewNet2').innerText = '$0';
+            document.getElementById('previewTax2').innerText = '$0';
+            hintEl2.innerText = "";
+        });
+
+        function renderAll2() {
+            const pFilter = document.getElementById('periodFilter2').value;
+            const tFilter = document.getElementById('typeFilter2').value;
+            let displayData = transactions2;
+            if (pFilter !== 'all') displayData = displayData.filter(t => t.period == pFilter);
+            if (tFilter !== 'all') displayData = displayData.filter(t => t.type === tFilter);
+            
+            updateStats2(displayData);
+
+            const tbody = document.getElementById('dataTable2');
+            const ptbody = document.getElementById('printTableBody2');
+            tbody.innerHTML = '';
+            ptbody.innerHTML = '';
+
+            displayData.forEach(t => {
+                const isS = t.type === 'sales';
+                const exAmt = Math.round(t.total / 1.05);
+                const taxAmt = t.total - exAmt;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4"><input type="date" value="${t.date}" onchange="updateRowField(2, '${t.id}', 'date', this.value)" class="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-1 focus:ring-blue-400 rounded"></td>
+                        <td class="px-6 py-4 editable-cell font-mono text-xs font-bold text-slate-700" onclick="startEdit(this, 2, '${t.id}', 'invoice')">${t.invoice || '-'}</td>
+                        <td class="px-6 py-4">
+                            <select onchange="updateRowField(2, '${t.id}', 'type', this.value)" class="bg-transparent border-none text-[10px] font-black tracking-widest ${isS?'text-blue-600':'text-emerald-600'}">
+                                <option value="sales" ${isS?'selected':''}>銷項收入</option>
+                                <option value="purchase" ${!isS?'selected':''}>進項支出</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 editable-cell font-bold text-slate-800" onclick="startEdit(this, 2, '${t.id}', 'desc')">${t.desc}</td>
+                        <td class="px-6 py-4 text-right font-mono text-slate-500">$${exAmt.toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right font-mono text-slate-500">$${taxAmt.toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right editable-cell font-black text-slate-900 bg-slate-50/50" onclick="startEdit(this, 2, '${t.id}', 'total', 'number')">$${Math.round(t.total).toLocaleString()}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="deleteEntry(2, '${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                ptbody.innerHTML += `
+                    <tr>
+                        <td style="border: 1px solid black; padding: 5px;">${t.date}</td>
+                        <td style="border: 1px solid black; padding: 5px;">${t.invoice || '-'}</td>
+                        <td style="border: 1px solid black; padding: 5px;">${isS?'銷項':'進項'}</td>
+                        <td style="border: 1px solid black; padding: 5px;">${t.desc}</td>
+                        <td style="border: 1px solid black; padding: 5px; text-align:right;">$${exAmt.toLocaleString()}</td>
+                        <td style="border: 1px solid black; padding: 5px; text-align:right;">$${taxAmt.toLocaleString()}</td>
+                        <td style="border: 1px solid black; padding: 5px; text-align:right;">$${Math.round(t.total).toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateStats2(data) {
+            let sIncl = 0, pIncl = 0, sTax = 0, pTax = 0, sCount = 0, pCount = 0;
+            data.forEach(t => {
+                const total = Number(t.total) || 0;
+                const tax = Number(t.tax) || (total - Math.round(total / 1.05));
+                if (t.type === 'sales') { sIncl += total; sTax += tax; sCount++; }
+                else { pIncl += total; pTax += tax; pCount++; }
+            });
+
+            document.getElementById('statTotalSalesIncl2').innerText = '$' + Math.round(sIncl).toLocaleString();
+            document.getElementById('statTotalPurchasesIncl2').innerText = '$' + Math.round(pIncl).toLocaleString();
+            document.getElementById('statSalesTax2').innerText = '$' + Math.round(sTax).toLocaleString();
+            document.getElementById('countSales2').innerText = sCount + ' 筆';
+            document.getElementById('countPurchases2').innerText = pCount + ' 筆';
+            
+            const payable = sTax - pTax - prevOverpayment2;
+            const pEl = document.getElementById('statPayableTax2');
+            const cardEl = document.getElementById('payableCard2');
+            
+            pEl.innerText = '$' + Math.round(Math.abs(payable)).toLocaleString() + (payable >= 0 ? ' (應納)' : ' (留抵)');
+            document.getElementById('formulaDisplay2').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(prevOverpayment2)})`;
+            cardEl.className = payable >= 0 ? "bg-rose-600 p-6 rounded-2xl shadow-lg border border-rose-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-6 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
+
+            document.getElementById('printFooter2').innerHTML = `
+                銷項稅額: ${Math.round(sTax).toLocaleString()} | 進項稅額: ${Math.round(pTax).toLocaleString()} | 上期留抵: ${Math.round(prevOverpayment2).toLocaleString()} <br>
+                <span style="font-size: 1.2em;">本期結算: ${Math.round(Math.abs(payable)).toLocaleString()} ${payable >= 0 ? '(應納)' : '(留抵)'}</span>
+            `;
+        }
+
+        // 點擊儲存格直接編輯功能
+        function startEdit(cell, tabNum, id, field, type = 'text') {
+            if (cell.querySelector('input')) return;
+            const list = tabNum === 1 ? transactions1 : transactions2;
+            const item = list.find(t => t.id === id);
+            const originalValue = item ? (item[field] || '') : '';
+            
+            cell.innerHTML = `<input type="${type}" class="editing-input font-bold" value="${originalValue}">`;
+            const input = cell.querySelector('input');
+            input.focus();
+            if(type === 'text') input.select();
+
+            const finish = () => {
+                const newValue = type === 'number' ? parseFloat(input.value) || 0 : input.value.trim();
+                updateRowField(tabNum, id, field, newValue);
+            };
+
+            input.addEventListener('blur', finish);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(); });
+        }
+
+        function updateRowField(tabNum, id, field, value) {
+            if (isTesterMode) {
+                const list = tabNum === 1 ? transactions1 : transactions2;
+                const item = list.find(t => t.id === id);
+                if (item) {
+                    if (field === 'total') {
+                        item.total = value;
+                        item.amount = Math.round(value / 1.05);
+                        item.tax = value - item.amount;
+                    } else {
+                        item[field] = value;
+                        if (field === 'date') item.period = Math.ceil((new Date(value).getMonth() + 1) / 2);
+                    }
+                    localStorage.setItem(tabNum === 1 ? 'tester_xinkai_data' : 'tester_zhenfeng_data', JSON.stringify(list));
+                    tabNum === 1 ? renderAll1() : renderAll2();
+                }
+            } else {
+                const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
+                const updateData = {};
+                if (field === 'total') {
+                    updateData['total'] = value;
+                    updateData['amount'] = Math.round(value / 1.05);
+                    updateData['tax'] = value - Math.round(value / 1.05);
+                } else {
+                    updateData[field] = value;
+                    if (field === 'date') updateData['period'] = Math.ceil((new Date(value).getMonth() + 1) / 2);
+                }
+                db.collection(colName).doc(id).update(updateData);
+            }
+        }
+
+        function deleteEntry(tabNum, id) {
+            if (confirm('確定刪除此筆資料？')) {
+                if (isTesterMode) {
+                    if (tabNum === 1) {
+                        transactions1 = transactions1.filter(t => t.id !== id);
+                        localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
+                        renderAll1();
+                    } else {
+                        transactions2 = transactions2.filter(t => t.id !== id);
+                        localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
+                        renderAll2();
+                    }
+                } else {
+                    const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
+                    db.collection(colName).doc(id).delete();
+                }
+            }
+        }
     </script>
-
-    <!-- 頂部與主介面框架 -->
-    <header class="no-print bg-slate-950 py-12 px-4 text-center shadow-2xl"><h1 class="text-5xl md:text-6xl font-black text-orange-500 tracking-tighter">AS TAIPEI</h1><div id="online-status" class="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-[0.3em] italic">初始化雲端環境...</div></header>
-
-    <main id="app-container" class="max-w-6xl mx-auto px-4 py-8 md:py-14 print-container">
-        <nav id="nav-bar" class="no-print flex flex-row justify-center gap-4 md:gap-8 mb-10 md:mb-16">
-            <button onclick="window.setMode('history')" class="flex-1 md:flex-none bg-white text-slate-700 p-5 md:p-6 px-8 md:px-16 rounded-[2.5rem] font-black shadow-lg border border-slate-100 hover:bg-slate-50 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">📋 工單總表</button>
-            <button onclick="window.setMode('form', null, true)" class="flex-1 md:flex-none bg-orange-500 text-white p-5 md:p-6 px-8 md:px-16 rounded-[2.5rem] font-black shadow-2xl shadow-orange-200 hover:bg-orange-600 text-sm md:text-lg transition-all active:scale-95 flex items-center justify-center gap-2">＋ 建立新案</button>
-        </nav>
-        <section id="mode-history" class="hidden"></section>
-        <section id="mode-form" class="hidden"></section>
-        <section id="mode-quote" class="hidden"></section>
-        <section id="mode-printPreview" class="hidden"></section>
-    </main>
-
-    <!-- 自訂刪除確認對話框 -->
-    <div id="custom-confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden p-4 no-print"><div class="bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center border-t-8 border-red-500"><div class="text-5xl mb-6">🗑️</div><h3 class="text-2xl font-black text-slate-900 mb-2">確認要刪除嗎？</h3><p class="text-sm text-slate-500 mb-8">刪除後資料將無法從雲端復原。</p><div class="flex gap-4"><button onclick="document.getElementById('custom-confirm-modal').classList.add('hidden')" class="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black">取消</button><button onclick="window.executeDelete()" class="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200">確定刪除</button></div></div></div>
-
-    <!-- UI 訊息提示框 -->
-    <div id="ui-message" class="fixed top-10 left-1/2 -translate-x-1/2 z-[200] hidden no-print w-[90%] md:w-auto"><div class="bg-slate-950 text-white px-10 py-5 rounded-[2.5rem] shadow-2xl font-black text-sm tracking-widest flex items-center justify-center gap-4 border border-slate-800"><span class="text-orange-500 text-xl">●</span><span id="ui-message-text"></span></div></div>
 </body>
 </html>
