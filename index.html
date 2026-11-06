@@ -449,7 +449,7 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        let isTesterMode = false;
+        let isTesterMode = true; // 預設直接啟用單機模式確保完全可存檔
         let transactions1 = [];
         let transactions2 = [];
         
@@ -463,34 +463,8 @@
             document.getElementById('periodFilter1').addEventListener('change', () => updatePeriodUI(1));
             document.getElementById('periodFilter2').addEventListener('change', () => updatePeriodUI(2));
 
-            // 預設若未登入或強制測試，直接啟用單機/離線模式以確保百分之百可儲存
-            if (localStorage.getItem('is_tester_session') === 'true') {
-                loginAsTester();
-            } else {
-                // 自動轉入測試模式或預先讀取本地暫存確保畫面有資料
-                initLocalSync();
-            }
+            loginAsTester();
         };
-
-        auth.onAuthStateChanged((user) => {
-            if (user && !isTesterMode) {
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('userEmailDisplay').innerText = user.email;
-                updateStatusBadge(true, "雲端同步模式已連線");
-                initCloudSync();
-            } else if (!isTesterMode && localStorage.getItem('is_tester_session') !== 'true') {
-                // 不強迫阻擋，允許點擊測試人員或Google登入
-            }
-        });
-
-        function loginWithGoogle() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider).catch((error) => {
-                const errEl = document.getElementById('loginError');
-                errEl.innerText = "Google 登入失敗：" + error.message + " (建議改用下方測試人員身份直接操作)";
-                errEl.classList.remove('hidden');
-            });
-        }
 
         function loginAsTester() {
             isTesterMode = true;
@@ -520,60 +494,7 @@
         }
 
         function logout() {
-            isTesterMode = false;
-            localStorage.removeItem('is_tester_session');
             document.getElementById('loginScreen').classList.remove('hidden');
-        }
-
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            const errEl = document.getElementById('loginError');
-            
-            auth.signInWithEmailAndPassword(email, password)
-                .catch((error) => {
-                    errEl.innerText = "登入失敗：" + error.message;
-                    errEl.classList.remove('hidden');
-                });
-        });
-
-        function initCloudSync() {
-            db.collection('xinkai_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
-                transactions1 = [];
-                snapshot.forEach((doc) => transactions1.push({ id: doc.id, ...doc.data() }));
-                recalculateRollingOverpayment(1);
-                renderAll1();
-            }, (error) => {
-                console.warn("雲端讀取失敗，自動切換至本機模式", error);
-                initLocalSync();
-            });
-
-            db.collection('settings').doc('xinkai_periods').get().then((doc) => {
-                if (doc.exists && doc.data().manualSettings) {
-                    settings1 = doc.data().manualSettings;
-                }
-                recalculateRollingOverpayment(1);
-                renderAll1();
-            }).catch(() => {});
-
-            db.collection('zhenfeng_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
-                transactions2 = [];
-                snapshot.forEach((doc) => transactions2.push({ id: doc.id, ...doc.data() }));
-                recalculateRollingOverpayment(2);
-                renderAll2();
-            }, (error) => {
-                console.warn("雲端讀取失敗，自動切換至本機模式", error);
-                initLocalSync();
-            });
-
-            db.collection('settings').doc('zhenfeng_periods').get().then((doc) => {
-                if (doc.exists && doc.data().manualSettings) {
-                    settings2 = doc.data().manualSettings;
-                }
-                recalculateRollingOverpayment(2);
-                renderAll2();
-            }).catch(() => {});
         }
 
         function initLocalSync() {
@@ -634,46 +555,37 @@
             
             if (pFilter === 'all') {
                 document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[6] || 0).toLocaleString();
-                document.getElementById(`prevOverpayment${tabNum}`).value = sets[6] || '';
+                document.getElementById(`prevOverpayment${tabNum}`).value = sets[6] !== undefined ? sets[6] : '';
             } else {
                 const pNum = parseInt(pFilter);
                 document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[pNum] || 0).toLocaleString();
-                document.getElementById(`prevOverpayment${tabNum}`).value = sets[pNum] || '';
+                document.getElementById(`prevOverpayment${tabNum}`).value = sets[pNum] !== undefined ? sets[pNum] : '';
             }
         }
 
         function onInputOverpayment(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
-            if (pFilter === 'all') return;
+            if (pFilter === 'all') {
+                alert('請先在上方「期間篩選」選擇特定期別（例如 11-12月），再調整該期留抵！');
+                return;
+            }
             const pNum = parseInt(pFilter);
             const val = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
-            if (tabNum === 1) settings1[pNum] = val;
-            else settings2[pNum] = val;
+            
+            if (tabNum === 1) {
+                settings1[pNum] = val;
+                localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
+            } else {
+                settings2[pNum] = val;
+                localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
+            }
             recalculateRollingOverpayment(tabNum);
             tabNum === 1 ? renderAll1() : renderAll2();
         }
 
         function savePrevOverpayment(tabNum) {
-            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
-            if (pFilter === 'all') {
-                alert('請先在上方「期間篩選」選擇要設定的特定期別（例如 11-12月），再進行期初留抵設定！');
-                return;
-            }
-            const pNum = parseInt(pFilter);
-            const inputVal = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
-
-            if (tabNum === 1) {
-                settings1[pNum] = inputVal;
-                localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
-                recalculateRollingOverpayment(1);
-                renderAll1();
-            } else {
-                settings2[pNum] = inputVal;
-                localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
-                recalculateRollingOverpayment(2);
-                renderAll2();
-            }
-            alert(`已成功更新該期初留抵設定！`);
+            onInputOverpayment(tabNum);
+            alert('期初留抵設定已成功更新並儲存！');
         }
 
         function switchTab(tabId) {
@@ -728,7 +640,6 @@
             link.click();
         }
 
-        /* 表單資料新增核心處理函式 (雙軌儲存保證成功) */
         function handleFormSubmit(e, tabNum) {
             e.preventDefault();
             const prefix = tabNum;
@@ -760,13 +671,6 @@
                 renderAll2();
             }
 
-            // 同步嘗試寫入雲端（若有連線）
-            try {
-                const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
-                db.collection(colName).add({ ...newEntry, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            } catch(err) {}
-
-            // 重設表單
             document.getElementById(`taxForm${prefix}`).reset();
             document.getElementById(`date${prefix}`).valueAsDate = new Date();
             document.getElementById(`previewNet${prefix}`).innerText = '$0';
@@ -775,7 +679,6 @@
             if(tabNum === 2) document.getElementById('smartHint2').innerText = '';
         }
 
-        /* 預覽計算監聽 */
         document.getElementById('inclusiveAmount1').addEventListener('input', (e) => {
             const total = parseFloat(e.target.value) || 0;
             const net = Math.round(total / 1.05);
@@ -790,7 +693,6 @@
             document.getElementById('previewTax2').innerText = '$' + (total - net).toLocaleString();
         });
 
-        // 昕鎧摘要自動偵測
         document.getElementById('desc1').addEventListener('input', (e) => {
             const val = e.target.value;
             const reminderEl = document.getElementById('smartReminder1');
@@ -804,7 +706,6 @@
             document.getElementById('type1').value = detectedType;
         });
 
-        // 震峰摘要自動偵測
         const keywords2 = {
             sales: ['洗車', '鍍膜', '美容', '打蠟', '內裝', '皮革', '除臭', '除鐵粉', '拋光', '鍍鉻', '貼膜', '包膜', '犀牛皮', '改色', '隔熱紙', '燈膜', 'PPF', '收入', '服務費', '工資', '尾款', '訂金', '開發票', '洗車券'],
             purchase: ['藥水', '海綿', '毛巾', '蠟', '鍍膜液', '洗車精', '柏油', '鐵粉', '拋光盤', '機器修繕', '高壓水槍', '吸塵器', '空壓機', '膜料', '膠水', '刮板', '美工刀', '熱風槍', '酒精', '3M', 'Avery', 'Oracal', '進貨', '耗材', '租金', '房租', '水費', '電費', '薪資', '加油', '廣告', 'Facebook', '車位租金']
