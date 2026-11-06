@@ -124,8 +124,8 @@
                     <select id="periodFilter1" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="onPeriodFilterChange(1)">
                         <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
-                        <option value="3">05-06月</option><option value="4">07-08月</option>
-                        <option value="5" selected>09-10月</option><option value="6">11-12月</option>
+                        <option value="3">05-06月</option><option value="4" selected>07-08月</option>
+                        <option value="5">09-10月</option><option value="6">11-12月</option>
                     </select>
                     <button onclick="exportCSV(1)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
                         匯出 Excel 明細
@@ -179,7 +179,7 @@
                     <div>
                         <h3 class="text-xs font-black text-slate-700 uppercase mb-3 border-b pb-2 flex items-center justify-between">
                             <span>會計所最終核定資訊</span>
-                            <span id="periodBadge1" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">第 5 期 (09-10月)</span>
+                            <span id="periodBadge1" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">第 4 期 (07-08月)</span>
                         </h3>
                         
                         <div class="space-y-3">
@@ -315,8 +315,8 @@
                     <select id="periodFilter2" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="onPeriodFilterChange(2)">
                         <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
-                        <option value="3">05-06月</option><option value="4">07-08月</option>
-                        <option value="5" selected>09-10月</option><option value="6">11-12月</option>
+                        <option value="3">05-06月</option><option value="4" selected>07-08月</option>
+                        <option value="5">09-10月</option><option value="6">11-12月</option>
                     </select>
                     <button onclick="exportCSV(2)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
                         匯出 Excel 明細
@@ -370,7 +370,7 @@
                     <div>
                         <h3 class="text-xs font-black text-slate-700 uppercase mb-3 border-b pb-2 flex items-center justify-between">
                             <span>會計所最終核定資訊</span>
-                            <span id="periodBadge2" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">第 5 期 (09-10月)</span>
+                            <span id="periodBadge2" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">第 4 期 (07-08月)</span>
                         </h3>
                         
                         <div class="space-y-3">
@@ -636,7 +636,7 @@
             if (inputDate) {
                 return Math.ceil((new Date(inputDate).getMonth() + 1) / 2);
             }
-            return 5;
+            return 4;
         }
 
         function onPeriodFilterChange(tabNum) {
@@ -647,11 +647,11 @@
         function updatePeriodUI(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             const sets = tabNum === 1 ? settings1 : settings2;
-            let activePeriod = pFilter === 'all' ? 5 : parseInt(pFilter);
+            let activePeriod = pFilter === 'all' ? 4 : parseInt(pFilter);
 
             const badgeEl = document.getElementById(`periodBadge${tabNum}`);
             if (pFilter === 'all') {
-                badgeEl.innerText = `全期彙總 (顯示第5期設定)`;
+                badgeEl.innerText = `全期彙總 (顯示第4期設定)`;
             } else {
                 badgeEl.innerText = `第 ${activePeriod} 期 (${periodNames[activePeriod]})`;
             }
@@ -918,7 +918,7 @@
             document.getElementById('formulaDisplay1').innerText = `公式：(銷項稅額 - 進項稅額)`;
             cardEl.className = directPayable >= 0 ? "bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-5 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
-            let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
+            let activeP = pFilter === 'all' ? 4 : parseInt(pFilter);
             let pSet = settings1[activeP] || {};
             
             let finalSalesIncl = (pSet.sales !== undefined && pSet.sales !== '') ? Number(pSet.sales) : sIncl;
@@ -1031,7 +1031,7 @@
             document.getElementById('formulaDisplay2').innerText = `公式：(銷項稅額 - 進項稅額)`;
             cardEl.className = directPayable >= 0 ? "bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-5 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
-            let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
+            let activeP = pFilter === 'all' ? 4 : parseInt(pFilter);
             let pSet = settings2[activeP] || {};
             
             let finalSalesIncl = (pSet.sales !== undefined && pSet.sales !== '') ? Number(pSet.sales) : sIncl;
