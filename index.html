@@ -643,7 +643,8 @@
                 return;
             }
             const pNum = parseInt(pFilter);
-            const inputVal = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
+            const inputEl = document.getElementById(`prevOverpayment${tabNum}`);
+            const inputVal = parseFloat(inputEl.value) || 0;
 
             if (tabNum === 1) {
                 settings1[pNum] = inputVal;
