@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>營業稅統計與對帳系統 (雲端/測試雙模式)</title>
+    <title>營業稅統計與對帳系統 (分期滾動留抵)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     
@@ -45,7 +45,6 @@
                 <p class="text-slate-400 text-xs mt-1">請選擇登入方式以開始使用</p>
             </div>
 
-            <!-- Google 快捷登入按鈕 -->
             <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-3 shadow-sm mb-3">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
@@ -56,7 +55,6 @@
                 使用 Google 帳號快速登入
             </button>
 
-            <!-- 測試人員單機登入按鈕 -->
             <button onclick="loginAsTester()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border border-slate-200 mb-4 text-xs">
                 <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                 以測試人員身份登入 (單機測試/僅存本機)
@@ -123,7 +121,7 @@
                         <option value="purchase">僅看進項 (支出)</option>
                     </select>
                     <select id="periodFilter1" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll1()">
-                        <option value="all">所有期間</option>
+                        <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
                         <option value="3">05-06月</option><option value="4">07-08月</option>
                         <option value="5">09-10月</option><option value="6" selected>11-12月</option>
@@ -141,12 +139,12 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print text-sm">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
                     <span id="countSales1" class="absolute top-4 right-4 bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
-                    <p class="text-slate-400 font-bold mb-1 uppercase">總銷項(含稅)</p>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">本期總銷項(含稅)</p>
                     <h3 id="statTotalSalesIncl1" class="text-3xl font-black text-blue-600 tracking-tighter">$0</h3>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
                     <span id="countPurchases1" class="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
-                    <p class="text-slate-400 font-bold mb-1 uppercase">總進項(含稅)</p>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">本期總進項(含稅)</p>
                     <h3 id="statTotalPurchasesIncl1" class="text-3xl font-black text-emerald-600 tracking-tighter">$0</h3>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -164,23 +162,24 @@
                 </div>
             </div>
 
-            <!-- 上期留抵與快速新增區 -->
+            <!-- 期別留抵滾動面板與快速新增區 -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 no-print">
                 <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-xs font-black text-slate-500 uppercase">上期留抵額輸入</label>
-                            <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">已儲存: <span id="currentSavedOverpayment1">$0</span></span>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-black text-slate-500 uppercase">期初手動調整留抵</label>
+                            <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">當前期別累積: <span id="currentSavedOverpayment1">$0</span></span>
                         </div>
+                        <p class="text-[10px] text-slate-400 mb-2">系統會自動將前一期留抵帶入下期，您也可在此微調。</p>
                         <div class="relative">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input type="number" id="prevOverpayment1" placeholder="0" 
+                            <input type="number" id="prevOverpayment1" placeholder="輸入金額" 
                                 class="w-full pl-7 pr-3 py-2.5 border-2 border-blue-50 rounded-xl text-base outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
                         </div>
                     </div>
-                    <button type="button" onclick="savePrevOverpayment(1)" class="mt-3 w-full bg-slate-900 hover:bg-black text-white py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        儲存留抵額
+                    <button type="button" onclick="savePrevOverpayment(1)" class="mt-3 w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        更新該期留抵設定
                     </button>
                 </div>
 
@@ -273,7 +272,10 @@
         <div id="tab2" class="tab-content hidden">
             <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
                 <div>
-                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">震峰有限公司 - 營業稅統計</h1>
+                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        震峰有限公司 
+                        <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-md font-normal">統編 52623886</span>
+                    </h1>
                     <p class="text-slate-500 mt-1 flex items-center gap-2 text-sm">
                         <span id="syncDot2" class="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> 
                         <span id="syncStatus2">載入中...</span>
@@ -286,7 +288,7 @@
                         <option value="purchase">僅看進項 (支出)</option>
                     </select>
                     <select id="periodFilter2" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll2()">
-                        <option value="all">所有期間</option>
+                        <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
                         <option value="3">05-06月</option><option value="4">07-08月</option>
                         <option value="5">09-10月</option><option value="6" selected>11-12月</option>
@@ -304,12 +306,12 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print text-sm">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
                     <span id="countSales2" class="absolute top-4 right-4 bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
-                    <p class="text-slate-400 font-bold mb-1 uppercase">總銷項(含稅)</p>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">本期總銷項(含稅)</p>
                     <h3 id="statTotalSalesIncl2" class="text-3xl font-black text-blue-600 tracking-tighter">$0</h3>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
                     <span id="countPurchases2" class="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-black">0 筆</span>
-                    <p class="text-slate-400 font-bold mb-1 uppercase">總進項(含稅)</p>
+                    <p class="text-slate-400 font-bold mb-1 uppercase">本期總進項(含稅)</p>
                     <h3 id="statTotalPurchasesIncl2" class="text-3xl font-black text-emerald-600 tracking-tighter">$0</h3>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -327,23 +329,24 @@
                 </div>
             </div>
 
-            <!-- 上期留抵與快速新增區 -->
+            <!-- 期別留抵滾動面板與快速新增區 -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 no-print">
                 <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-xs font-black text-slate-500 uppercase">上期留抵額輸入</label>
-                            <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">已儲存: <span id="currentSavedOverpayment2">$0</span></span>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-black text-slate-500 uppercase">期初手動調整留抵</label>
+                            <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">當前期別累積: <span id="currentSavedOverpayment2">$0</span></span>
                         </div>
+                        <p class="text-[10px] text-slate-400 mb-2">系統會自動將前一期留抵帶入下期，您也可在此微調。</p>
                         <div class="relative">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input type="number" id="prevOverpayment2" placeholder="0" 
+                            <input type="number" id="prevOverpayment2" placeholder="輸入金額" 
                                 class="w-full pl-7 pr-3 py-2.5 border-2 border-blue-50 rounded-xl text-base outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
                         </div>
                     </div>
-                    <button type="button" onclick="savePrevOverpayment(2)" class="mt-3 w-full bg-slate-900 hover:bg-black text-white py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        儲存留抵額
+                    <button type="button" onclick="savePrevOverpayment(2)" class="mt-3 w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        更新該期留抵設定
                     </button>
                 </div>
 
@@ -449,12 +452,16 @@
         let isTesterMode = false;
         let transactions1 = [];
         let transactions2 = [];
-        let prevOverpayment1 = 0;
-        let prevOverpayment2 = 0;
+        
+        let settings1 = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+        let settings2 = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
 
         window.onload = () => { 
             document.getElementById('date1').valueAsDate = new Date(); 
             document.getElementById('date2').valueAsDate = new Date(); 
+
+            document.getElementById('periodFilter1').addEventListener('change', () => updatePeriodUI(1));
+            document.getElementById('periodFilter2').addEventListener('change', () => updatePeriodUI(2));
 
             if (localStorage.getItem('is_tester_session') === 'true') {
                 loginAsTester();
@@ -535,70 +542,129 @@
             db.collection('xinkai_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
                 transactions1 = [];
                 snapshot.forEach((doc) => transactions1.push({ id: doc.id, ...doc.data() }));
+                recalculateRollingOverpayment(1);
                 renderAll1();
             });
 
-            db.collection('settings').doc('xinkai').get().then((doc) => {
-                if (doc.exists) {
-                    prevOverpayment1 = doc.data().prevOverpayment || 0;
-                    document.getElementById('prevOverpayment1').value = prevOverpayment1 || '';
-                    document.getElementById('currentSavedOverpayment1').innerText = '$' + Number(prevOverpayment1).toLocaleString();
-                    renderAll1();
+            db.collection('settings').doc('xinkai_periods').get().then((doc) => {
+                if (doc.exists && doc.data().manualSettings) {
+                    settings1 = doc.data().manualSettings;
                 }
+                recalculateRollingOverpayment(1);
+                renderAll1();
             });
 
             db.collection('zhenfeng_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
                 transactions2 = [];
                 snapshot.forEach((doc) => transactions2.push({ id: doc.id, ...doc.data() }));
+                recalculateRollingOverpayment(2);
                 renderAll2();
             });
 
-            db.collection('settings').doc('zhenfeng').get().then((doc) => {
-                if (doc.exists) {
-                    prevOverpayment2 = doc.data().prevOverpayment || 0;
-                    document.getElementById('prevOverpayment2').value = prevOverpayment2 || '';
-                    document.getElementById('currentSavedOverpayment2').innerText = '$' + Number(prevOverpayment2).toLocaleString();
-                    renderAll2();
+            db.collection('settings').doc('zhenfeng_periods').get().then((doc) => {
+                if (doc.exists && doc.data().manualSettings) {
+                    settings2 = doc.data().manualSettings;
                 }
+                recalculateRollingOverpayment(2);
+                renderAll2();
             });
         }
 
         function initLocalSync() {
             transactions1 = JSON.parse(localStorage.getItem('tester_xinkai_data')) || [];
-            prevOverpayment1 = parseFloat(localStorage.getItem('tester_xinkai_prev')) || 0;
-            document.getElementById('prevOverpayment1').value = prevOverpayment1 || '';
-            document.getElementById('currentSavedOverpayment1').innerText = '$' + Number(prevOverpayment1).toLocaleString();
+            const localSet1 = localStorage.getItem('tester_xinkai_settings');
+            if (localSet1) settings1 = JSON.parse(localSet1);
 
             transactions2 = JSON.parse(localStorage.getItem('tester_zhenfeng_data')) || [];
-            prevOverpayment2 = parseFloat(localStorage.getItem('tester_zhenfeng_prev')) || 0;
-            document.getElementById('prevOverpayment2').value = prevOverpayment2 || '';
-            document.getElementById('currentSavedOverpayment2').innerText = '$' + Number(prevOverpayment2).toLocaleString();
+            const localSet2 = localStorage.getItem('tester_zhenfeng_settings');
+            if (localSet2) settings2 = JSON.parse(localSet2);
 
+            recalculateRollingOverpayment(1);
+            recalculateRollingOverpayment(2);
             renderAll1();
             renderAll2();
         }
 
+        function getPeriodResult(transactions, periodNum, baseManualOverpayment) {
+            const pData = transactions.filter(t => t.period == periodNum);
+            let sTax = 0, pTax = 0;
+            pData.forEach(t => {
+                const total = Number(t.total) || 0;
+                const tax = Number(t.tax) || (total - Math.round(total / 1.05));
+                if (t.type === 'sales') sTax += tax;
+                else pTax += tax;
+            });
+            const netPayable = sTax - pTax - baseManualOverpayment;
+            return {
+                salesTax: sTax,
+                purchaseTax: pTax,
+                overpaymentUsed: baseManualOverpayment,
+                netPayable: netPayable,
+                leftover: netPayable < 0 ? Math.abs(netPayable) : 0
+            };
+        }
+
+        let computedOverpayments1 = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+        let computedOverpayments2 = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+
+        function recalculateRollingOverpayment(tabNum) {
+            const txs = tabNum === 1 ? transactions1 : transactions2;
+            const sets = tabNum === 1 ? settings1 : settings2;
+            const computed = tabNum === 1 ? computedOverpayments1 : computedOverpayments2;
+
+            let currentPrev = Number(sets[1]) || 0;
+            for (let p = 1; p <= 6; p++) {
+                computed[p] = currentPrev;
+                const res = getPeriodResult(txs, p, currentPrev);
+                currentPrev = res.netPayable < 0 ? Math.abs(res.netPayable) : 0;
+            }
+            updatePeriodUI(tabNum);
+        }
+
+        function updatePeriodUI(tabNum) {
+            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
+            const computed = tabNum === 1 ? computedOverpayments1 : computedOverpayments2;
+            const sets = tabNum === 1 ? settings1 : settings2;
+            
+            if (pFilter === 'all') {
+                document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[6] || 0).toLocaleString();
+                document.getElementById(`prevOverpayment${tabNum}`).value = sets[6] || '';
+            } else {
+                const pNum = parseInt(pFilter);
+                document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[pNum] || 0).toLocaleString();
+                document.getElementById(`prevOverpayment${tabNum}`).value = sets[pNum] || '';
+            }
+        }
+
         function savePrevOverpayment(tabNum) {
+            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
+            if (pFilter === 'all') {
+                alert('請先在上方「期間篩選」選擇要設定的特定期別（例如 11-12月），再進行期初留抵設定！');
+                return;
+            }
+            const pNum = parseInt(pFilter);
+            const inputVal = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
+
             if (tabNum === 1) {
-                prevOverpayment1 = parseFloat(document.getElementById('prevOverpayment1').value) || 0;
-                document.getElementById('currentSavedOverpayment1').innerText = '$' + Number(prevOverpayment1).toLocaleString();
+                settings1[pNum] = inputVal;
+                recalculateRollingOverpayment(1);
                 if (isTesterMode) {
-                    localStorage.setItem('tester_xinkai_prev', prevOverpayment1);
+                    localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
                 } else {
-                    db.collection('settings').doc('xinkai').set({ prevOverpayment: prevOverpayment1 });
+                    db.collection('settings').doc('xinkai_periods').set({ manualSettings: settings1 });
                 }
                 renderAll1();
             } else {
-                prevOverpayment2 = parseFloat(document.getElementById('prevOverpayment2').value) || 0;
-                document.getElementById('currentSavedOverpayment2').innerText = '$' + Number(prevOverpayment2).toLocaleString();
+                settings2[pNum] = inputVal;
+                recalculateRollingOverpayment(2);
                 if (isTesterMode) {
-                    localStorage.setItem('tester_zhenfeng_prev', prevOverpayment2);
+                    localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
                 } else {
-                    db.collection('settings').doc('zhenfeng').set({ prevOverpayment: prevOverpayment2 });
+                    db.collection('settings').doc('zhenfeng_periods').set({ manualSettings: settings2 });
                 }
                 renderAll2();
             }
-            alert('上期留抵額已成功儲存！');
+            alert(`已成功更新該期初留抵設定，後續期別已自動滾動重新計算！`);
         }
 
         function switchTab(tabId) {
@@ -636,14 +702,14 @@
                 return;
             }
 
-            let csvContent = "\uFEFF日期,發票號碼,類型,摘要說明,未稅淨額,5%營業稅額,含稅總額\n";
+            let csvContent = "\uFEFF日期,發票號碼,類型,期間,摘要說明,未稅淨額,5%營業稅額,含稅總額\n";
             filtered.forEach(t => {
                 const exAmt = Math.round(t.total / 1.05);
                 const taxAmt = t.total - exAmt;
                 const typeText = t.type === 'sales' ? '銷項收入' : '進項支出';
                 const safeDesc = `"${(t.desc || '').replace(/"/g, '""')}"`;
                 const safeInv = t.invoice || '';
-                csvContent += `${t.date},${safeInv},${typeText},${safeDesc},${exAmt},${taxAmt},${t.total}\n`;
+                csvContent += `${t.date},${safeInv},${typeText},第${t.period}期,${safeDesc},${exAmt},${taxAmt},${t.total}\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -704,10 +770,13 @@
             if (isTesterMode) {
                 transactions1.unshift(newEntry);
                 localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
+                recalculateRollingOverpayment(1);
                 renderAll1();
             } else {
                 newEntry.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                db.collection('xinkai_transactions').add(newEntry);
+                db.collection('xinkai_transactions').add(newEntry).then(() => {
+                    recalculateRollingOverpayment(1);
+                });
             }
 
             e.target.reset();
@@ -772,7 +841,9 @@
         }
 
         function updateStats1(data) {
+            const pFilter = document.getElementById('periodFilter1').value;
             let sIncl = 0, pIncl = 0, sTax = 0, pTax = 0, sCount = 0, pCount = 0;
+            
             data.forEach(t => {
                 const total = Number(t.total) || 0;
                 const tax = Number(t.tax) || (total - Math.round(total / 1.05));
@@ -780,22 +851,29 @@
                 else { pIncl += total; pTax += tax; pCount++; }
             });
 
+            let usedOverpayment = 0;
+            if (pFilter === 'all') {
+                usedOverpayment = computedOverpayments1[6] || 0;
+            } else {
+                usedOverpayment = computedOverpayments1[parseInt(pFilter)] || 0;
+            }
+
             document.getElementById('statTotalSalesIncl1').innerText = '$' + Math.round(sIncl).toLocaleString();
             document.getElementById('statTotalPurchasesIncl1').innerText = '$' + Math.round(pIncl).toLocaleString();
             document.getElementById('statSalesTax1').innerText = '$' + Math.round(sTax).toLocaleString();
             document.getElementById('countSales1').innerText = sCount + ' 筆';
             document.getElementById('countPurchases1').innerText = pCount + ' 筆';
             
-            const payable = sTax - pTax - prevOverpayment1;
+            const payable = sTax - pTax - usedOverpayment;
             const pEl = document.getElementById('statPayableTax1');
             const cardEl = document.getElementById('payableCard1');
             
             pEl.innerText = '$' + Math.round(Math.abs(payable)).toLocaleString() + (payable >= 0 ? ' (應納)' : ' (留抵)');
-            document.getElementById('formulaDisplay1').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(prevOverpayment1)})`;
+            document.getElementById('formulaDisplay1').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(usedOverpayment)})`;
             cardEl.className = payable >= 0 ? "bg-rose-600 p-6 rounded-2xl shadow-lg border border-rose-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-6 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
             document.getElementById('printFooter1').innerHTML = `
-                銷項稅額: ${Math.round(sTax).toLocaleString()} | 進項稅額: ${Math.round(pTax).toLocaleString()} | 上期留抵: ${Math.round(prevOverpayment1).toLocaleString()} <br>
+                銷項稅額: ${Math.round(sTax).toLocaleString()} | 進項稅額: ${Math.round(pTax).toLocaleString()} | 帶入留抵: ${Math.round(usedOverpayment).toLocaleString()} <br>
                 <span style="font-size: 1.2em;">本期結算: ${Math.round(Math.abs(payable)).toLocaleString()} ${payable >= 0 ? '(應納)' : '(留抵)'}</span>
             `;
         }
@@ -854,10 +932,13 @@
             if (isTesterMode) {
                 transactions2.unshift(newEntry);
                 localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
+                recalculateRollingOverpayment(2);
                 renderAll2();
             } else {
                 newEntry.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                db.collection('zhenfeng_transactions').add(newEntry);
+                db.collection('zhenfeng_transactions').add(newEntry).then(() => {
+                    recalculateRollingOverpayment(2);
+                });
             }
 
             e.target.reset();
@@ -922,7 +1003,9 @@
         }
 
         function updateStats2(data) {
+            const pFilter = document.getElementById('periodFilter2').value;
             let sIncl = 0, pIncl = 0, sTax = 0, pTax = 0, sCount = 0, pCount = 0;
+            
             data.forEach(t => {
                 const total = Number(t.total) || 0;
                 const tax = Number(t.tax) || (total - Math.round(total / 1.05));
@@ -930,22 +1013,29 @@
                 else { pIncl += total; pTax += tax; pCount++; }
             });
 
+            let usedOverpayment = 0;
+            if (pFilter === 'all') {
+                usedOverpayment = computedOverpayments2[6] || 0;
+            } else {
+                usedOverpayment = computedOverpayments2[parseInt(pFilter)] || 0;
+            }
+
             document.getElementById('statTotalSalesIncl2').innerText = '$' + Math.round(sIncl).toLocaleString();
             document.getElementById('statTotalPurchasesIncl2').innerText = '$' + Math.round(pIncl).toLocaleString();
             document.getElementById('statSalesTax2').innerText = '$' + Math.round(sTax).toLocaleString();
             document.getElementById('countSales2').innerText = sCount + ' 筆';
             document.getElementById('countPurchases2').innerText = pCount + ' 筆';
             
-            const payable = sTax - pTax - prevOverpayment2;
+            const payable = sTax - pTax - usedOverpayment;
             const pEl = document.getElementById('statPayableTax2');
             const cardEl = document.getElementById('payableCard2');
             
             pEl.innerText = '$' + Math.round(Math.abs(payable)).toLocaleString() + (payable >= 0 ? ' (應納)' : ' (留抵)');
-            document.getElementById('formulaDisplay2').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(prevOverpayment2)})`;
+            document.getElementById('formulaDisplay2').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(usedOverpayment)})`;
             cardEl.className = payable >= 0 ? "bg-rose-600 p-6 rounded-2xl shadow-lg border border-rose-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-6 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
             document.getElementById('printFooter2').innerHTML = `
-                銷項稅額: ${Math.round(sTax).toLocaleString()} | 進項稅額: ${Math.round(pTax).toLocaleString()} | 上期留抵: ${Math.round(prevOverpayment2).toLocaleString()} <br>
+                銷項稅額: ${Math.round(sTax).toLocaleString()} | 進項稅額: ${Math.round(pTax).toLocaleString()} | 帶入留抵: ${Math.round(usedOverpayment).toLocaleString()} <br>
                 <span style="font-size: 1.2em;">本期結算: ${Math.round(Math.abs(payable)).toLocaleString()} ${payable >= 0 ? '(應納)' : '(留抵)'}</span>
             `;
         }
@@ -984,6 +1074,7 @@
                         if (field === 'date') item.period = Math.ceil((new Date(value).getMonth() + 1) / 2);
                     }
                     localStorage.setItem(tabNum === 1 ? 'tester_xinkai_data' : 'tester_zhenfeng_data', JSON.stringify(list));
+                    recalculateRollingOverpayment(tabNum);
                     tabNum === 1 ? renderAll1() : renderAll2();
                 }
             } else {
@@ -997,7 +1088,9 @@
                     updateData[field] = value;
                     if (field === 'date') updateData['period'] = Math.ceil((new Date(value).getMonth() + 1) / 2);
                 }
-                db.collection(colName).doc(id).update(updateData);
+                db.collection(colName).doc(id).update(updateData).then(() => {
+                    recalculateRollingOverpayment(tabNum);
+                });
             }
         }
 
@@ -1007,15 +1100,19 @@
                     if (tabNum === 1) {
                         transactions1 = transactions1.filter(t => t.id !== id);
                         localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
+                        recalculateRollingOverpayment(1);
                         renderAll1();
                     } else {
                         transactions2 = transactions2.filter(t => t.id !== id);
                         localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
+                        recalculateRollingOverpayment(2);
                         renderAll2();
                     }
                 } else {
                     const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
-                    db.collection(colName).doc(id).delete();
+                    db.collection(colName).doc(id).delete().then(() => {
+                        recalculateRollingOverpayment(tabNum);
+                    });
                 }
             }
         }
