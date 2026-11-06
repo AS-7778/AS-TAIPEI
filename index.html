@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>營業稅統計與對帳系統 (期別留抵調整)</title>
+    <title>營業稅統計與對帳系統 (會計核定對帳版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     
@@ -154,43 +154,55 @@
                     <h3 id="statTotalNonDeductibleIncl1" class="text-2xl font-black text-amber-600 tracking-tighter">$0</h3>
                 </div>
 
-                <!-- 卡片 4：當期獨立試算（不扣留抵） -->
+                <!-- 卡片 4：當期系統試算（不扣留抵） -->
                 <div id="payableCard1" class="bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden">
                     <div class="relative z-10">
-                        <p class="text-blue-100 font-bold mb-1 uppercase text-xs">本期試算 (不含留抵)</p>
+                        <p class="text-blue-100 font-bold mb-1 uppercase text-xs">本期系統試算 (不含留抵)</p>
                         <h3 id="statPayableTax1" class="text-2xl font-black tracking-tighter">$0</h3>
                         <p id="formulaDisplay1" class="text-[10px] text-blue-200 mt-2 font-bold opacity-90">公式：(銷項 - 進項)</p>
                     </div>
                 </div>
 
-                <!-- 卡片 5：結合手動填入留抵的最終計算 -->
+                <!-- 卡片 5：會計核定最終結果 (對應您輸入的會計所資料與留抵) -->
                 <div id="finalCalculatedCard1" class="bg-purple-700 p-5 rounded-2xl shadow-lg border border-purple-800 text-white relative overflow-hidden">
                     <div class="relative z-10">
-                        <p class="text-purple-200 font-bold mb-1 uppercase text-xs">會計核定/預估最終留抵</p>
+                        <p class="text-purple-200 font-bold mb-1 uppercase text-xs">會計核定最終結果</p>
                         <h3 id="statFinalCalculatedTax1" class="text-2xl font-black tracking-tighter">$0</h3>
-                        <p id="finalFormulaDisplay1" class="text-[10px] text-purple-200 mt-2 font-bold opacity-90">公式：(本期試算 - 留抵)</p>
+                        <p id="finalFormulaDisplay1" class="text-[10px] text-purple-200 mt-2 font-bold opacity-90">公式：(銷項 - 進項 - 留抵)</p>
                     </div>
                 </div>
             </div>
 
-            <!-- 留抵調整輸入面板與快速新增區 -->
+            <!-- 會計核定與手動留抵輸入面板與快速新增區 -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 no-print">
-                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
                     <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="block text-xs font-black text-slate-500 uppercase">會計師核定/手動調整留抵</label>
-                            <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">當期設定值: <span id="currentSavedOverpayment1">$0</span></span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mb-2">依每期會計所給的申報數字更新此處。</p>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input type="number" id="prevOverpayment1" placeholder="輸入金額" oninput="onInputOverpayment(1)"
-                                class="w-full pl-7 pr-3 py-2.5 border-2 border-blue-50 rounded-xl text-base outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                        <h3 class="text-xs font-black text-slate-700 uppercase mb-3 border-b pb-2 flex items-center justify-between">
+                            <span>會計所最終核定資訊</span>
+                            <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">可手動覆蓋</span>
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-總銷項(含稅)</label>
+                                <input type="number" id="manualSales1" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(1)"
+                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-可抵進項(含稅)</label>
+                                <input type="number" id="manualPurchase1" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(1)"
+                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-emerald-600 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">上期剩餘/手動更改留抵額</label>
+                                <input type="number" id="prevOverpayment1" placeholder="輸入金額" oninput="onInputAccountingInfo(1)"
+                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-purple-500 font-black text-purple-700 transition-all">
+                            </div>
                         </div>
                     </div>
-                    <button type="button" onclick="savePrevOverpayment(1)" class="mt-3 w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <button type="button" onclick="saveAccountingInfo(1)" class="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        更新該期留抵設定
+                        儲存會計核定資料
                     </button>
                 </div>
 
@@ -333,43 +345,55 @@
                     <h3 id="statTotalNonDeductibleIncl2" class="text-2xl font-black text-amber-600 tracking-tighter">$0</h3>
                 </div>
 
-                <!-- 卡片 4：當期獨立試算（不扣留抵） -->
+                <!-- 卡片 4：當期系統試算（不扣留抵） -->
                 <div id="payableCard2" class="bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden">
                     <div class="relative z-10">
-                        <p class="text-blue-100 font-bold mb-1 uppercase text-xs">本期試算 (不含留抵)</p>
+                        <p class="text-blue-100 font-bold mb-1 uppercase text-xs">本期系統試算 (不含留抵)</p>
                         <h3 id="statPayableTax2" class="text-2xl font-black tracking-tighter">$0</h3>
                         <p id="formulaDisplay2" class="text-[10px] text-blue-200 mt-2 font-bold opacity-90">公式：(銷項 - 進項)</p>
                     </div>
                 </div>
 
-                <!-- 卡片 5：結合手動填入留抵的最終計算 -->
+                <!-- 卡片 5：會計核定最終結果 -->
                 <div id="finalCalculatedCard2" class="bg-purple-700 p-5 rounded-2xl shadow-lg border border-purple-800 text-white relative overflow-hidden">
                     <div class="relative z-10">
-                        <p class="text-purple-200 font-bold mb-1 uppercase text-xs">會計核定/預估最終留抵</p>
+                        <p class="text-purple-200 font-bold mb-1 uppercase text-xs">會計核定最終結果</p>
                         <h3 id="statFinalCalculatedTax2" class="text-2xl font-black tracking-tighter">$0</h3>
-                        <p id="finalFormulaDisplay2" class="text-[10px] text-purple-200 mt-2 font-bold opacity-90">公式：(本期試算 - 留抵)</p>
+                        <p id="finalFormulaDisplay2" class="text-[10px] text-purple-200 mt-2 font-bold opacity-90">公式：(銷項 - 進項 - 留抵)</p>
                     </div>
                 </div>
             </div>
 
-            <!-- 留抵調整輸入面板與快速新增區 -->
+            <!-- 會計核定與手動留抵輸入面板與快速新增區 -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 no-print">
-                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
                     <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="block text-xs font-black text-slate-500 uppercase">會計師核定/手動調整留抵</label>
-                            <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">當期設定值: <span id="currentSavedOverpayment2">$0</span></span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mb-2">依每期會計所給的申報數字更新此處。</p>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input type="number" id="prevOverpayment2" placeholder="輸入金額" oninput="onInputOverpayment(2)"
-                                class="w-full pl-7 pr-3 py-2.5 border-2 border-blue-50 rounded-xl text-base outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                        <h3 class="text-xs font-black text-slate-700 uppercase mb-3 border-b pb-2 flex items-center justify-between">
+                            <span>會計所最終核定資訊</span>
+                            <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">可手動覆蓋</span>
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-總銷項(含稅)</label>
+                                <input type="number" id="manualSales2" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(2)"
+                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-可抵進項(含稅)</label>
+                                <input type="number" id="manualPurchase2" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(2)"
+                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-emerald-600 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">上期剩餘/手動更改留抵額</label>
+                                <input type="number" id="prevOverpayment2" placeholder="輸入金額" oninput="onInputAccountingInfo(2)"
+                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-purple-500 font-black text-purple-700 transition-all">
+                            </div>
                         </div>
                     </div>
-                    <button type="button" onclick="savePrevOverpayment(2)" class="mt-3 w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
+                    <button type="button" onclick="saveAccountingInfo(2)" class="w-full bg-slate-900 hover:bg-black text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        更新該期留抵設定
+                        儲存會計核定資料
                     </button>
                 </div>
 
@@ -477,8 +501,9 @@
         let transactions1 = [];
         let transactions2 = [];
         
-        let settings1 = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
-        let settings2 = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+        // 儲存格式: { periodNum: { sales: val, purchase: val, overpayment: val } }
+        let settings1 = {};
+        let settings2 = {};
 
         window.onload = () => { 
             document.getElementById('date1').valueAsDate = new Date(); 
@@ -603,39 +628,16 @@
             renderAll2();
         }
 
-        function getPeriodResult(transactions, periodNum, manualOverpayment) {
-            const pData = transactions.filter(t => t.period == periodNum);
-            let sTax = 0, pTax = 0;
-            pData.forEach(t => {
-                const total = Number(t.total) || 0;
-                const tax = Number(t.tax) || (total - Math.round(total / 1.05));
-                if (t.type === 'sales') sTax += tax;
-                else if (t.type === 'purchase') pTax += tax;
-            });
-
-            // 當期試算（不扣留抵）：銷項 - 進項
-            const directPayable = sTax - pTax;
-            // 結合會計師核定/手動調整留抵的最終計算：(銷項 - 進項) - 手動留抵
-            const netPayable = directPayable - manualOverpayment;
-
-            return {
-                salesTax: sTax,
-                purchaseTax: pTax,
-                directPayable: directPayable,
-                overpaymentUsed: manualOverpayment,
-                netPayable: netPayable,
-                leftover: netPayable < 0 ? Math.abs(netPayable) : 0
-            };
-        }
-
         function updatePeriodUI(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             const sets = tabNum === 1 ? settings1 : settings2;
             let activePeriod = pFilter === 'all' ? 5 : parseInt(pFilter);
 
-            const currentVal = sets[activePeriod] !== undefined ? sets[activePeriod] : 0;
-            document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(currentVal).toLocaleString();
-            document.getElementById(`prevOverpayment${tabNum}`).value = currentVal !== 0 ? currentVal : '';
+            const periodData = sets[activePeriod] || { sales: '', purchase: '', overpayment: '' };
+            
+            document.getElementById(`manualSales${tabNum}`).value = periodData.sales !== undefined && periodData.sales !== '' ? periodData.sales : '';
+            document.getElementById(`manualPurchase${tabNum}`).value = periodData.purchase !== undefined && periodData.purchase !== '' ? periodData.purchase : '';
+            document.getElementById(`prevOverpayment${tabNum}`).value = periodData.overpayment !== undefined && periodData.overpayment !== '' ? periodData.overpayment : '';
         }
 
         function getCurrentSelectedPeriod(tabNum) {
@@ -648,23 +650,31 @@
             return 5;
         }
 
-        function onInputOverpayment(tabNum) {
+        function onInputAccountingInfo(tabNum) {
             const pNum = getCurrentSelectedPeriod(tabNum);
-            const val = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
+            const salesVal = document.getElementById(`manualSales${tabNum}`).value;
+            const purchaseVal = document.getElementById(`manualPurchase${tabNum}`).value;
+            const overpaymentVal = document.getElementById(`prevOverpayment${tabNum}`).value;
             
+            const sets = tabNum === 1 ? settings1 : settings2;
+            if (!sets[pNum]) sets[pNum] = {};
+
+            sets[pNum].sales = salesVal;
+            sets[pNum].purchase = purchaseVal;
+            sets[pNum].overpayment = overpaymentVal;
+
             if (tabNum === 1) {
-                settings1[pNum] = val;
                 localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
+                renderAll1();
             } else {
-                settings2[pNum] = val;
                 localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
+                renderAll2();
             }
-            tabNum === 1 ? renderAll1() : renderAll2();
         }
 
-        function savePrevOverpayment(tabNum) {
-            onInputOverpayment(tabNum);
-            alert('會計師核定/手動留抵設定已成功更新儲存！');
+        function saveAccountingInfo(tabNum) {
+            onInputAccountingInfo(tabNum);
+            alert('會計核定資料與留抵設定已成功儲存！');
         }
 
         function switchTab(tabId) {
@@ -868,13 +878,12 @@
 
         function updateStats1(data) {
             const pFilter = document.getElementById('periodFilter1').value;
-            let sIncl = 0, pIncl = 0, ndIncl = 0, sTax = 0, pTax = 0, sCount = 0, pCount = 0, ndCount = 0;
+            let sIncl = 0, pIncl = 0, ndIncl = 0, sCount = 0, pCount = 0, ndCount = 0;
             
             data.forEach(t => {
                 const total = Number(t.total) || 0;
-                const tax = Number(t.tax) || (total - Math.round(total / 1.05));
-                if (t.type === 'sales') { sIncl += total; sTax += tax; sCount++; }
-                else if (t.type === 'purchase') { pIncl += total; pTax += tax; pCount++; }
+                if (t.type === 'sales') { sIncl += total; sCount++; }
+                else if (t.type === 'purchase') { pIncl += total; pCount++; }
                 else if (t.type === 'non_deductible') { ndIncl += total; ndCount++; }
             });
 
@@ -885,30 +894,41 @@
             document.getElementById('countPurchases1').innerText = pCount + ' 筆';
             document.getElementById('countNonDeductible1').innerText = ndCount + ' 筆';
             
-            // 1. 本期試算 (不含留抵)
-            const directPayable = sTax - pTax;
+            // 系統試算稅額 (從列表明細計算)
+            let sysSTax = sIncl - Math.round(sIncl / 1.05);
+            let sysPTax = pIncl - Math.round(pIncl / 1.05);
+            const directPayable = sysSTax - sysPTax;
+
             const pEl = document.getElementById('statPayableTax1');
             const cardEl = document.getElementById('payableCard1');
-            
             pEl.innerText = '$' + Math.round(Math.abs(directPayable)).toLocaleString() + (directPayable >= 0 ? ' (應納)' : ' (留抵)');
-            document.getElementById('formulaDisplay1').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)})`;
+            document.getElementById('formulaDisplay1').innerText = `公式：(銷項稅額 - 進項稅額)`;
             cardEl.className = directPayable >= 0 ? "bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-5 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
-            // 2. 會計核定/預估最終留抵
+            // 會計核定最終結果 (優先讀取手動輸入的會計核定含稅總額與留抵)
             let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
-            let manualOverpayment = Number(settings1[activeP]) || 0;
-            const finalPayable = directPayable - manualOverpayment;
+            let pSet = settings1[activeP] || {};
+            
+            let finalSalesIncl = (pSet.sales !== undefined && pSet.sales !== '') ? Number(pSet.sales) : sIncl;
+            let finalPurchaseIncl = (pSet.purchase !== undefined && pSet.purchase !== '') ? Number(pSet.purchase) : pIncl;
+            let manualOverpayment = (pSet.overpayment !== undefined && pSet.overpayment !== '') ? Number(pSet.overpayment) : 0;
+
+            let finalSTax = finalSalesIncl - Math.round(finalSalesIncl / 1.05);
+            let finalPTax = finalPurchaseIncl - Math.round(finalPurchaseIncl / 1.05);
+            
+            // 最終公式：銷項稅額 - 進項稅額 - 手動留抵
+            const finalPayable = finalSTax - finalPTax - manualOverpayment;
 
             const finalEl = document.getElementById('statFinalCalculatedTax1');
             const finalCardEl = document.getElementById('finalCalculatedCard1');
 
             finalEl.innerText = '$' + Math.round(Math.abs(finalPayable)).toLocaleString() + (finalPayable >= 0 ? ' (應納)' : ' (留抵)');
-            document.getElementById('finalFormulaDisplay1').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(manualOverpayment)})`;
+            document.getElementById('finalFormulaDisplay1').innerText = `公式：(銷項 ${Math.round(finalSTax)} - 進項 ${Math.round(finalPTax)} - 留抵 ${Math.round(manualOverpayment)})`;
             finalCardEl.className = finalPayable >= 0 ? "bg-rose-600 p-5 rounded-2xl shadow-lg border border-rose-700 text-white relative overflow-hidden transition-colors" : "bg-purple-700 p-5 rounded-2xl shadow-lg border border-purple-800 text-white relative overflow-hidden transition-colors";
 
             document.getElementById('printFooter1').innerHTML = `
-                銷項稅額: ${Math.round(sTax).toLocaleString()} | 可抵進項稅額: ${Math.round(pTax).toLocaleString()} | 非抵稅項目總額: ${Math.round(ndIncl).toLocaleString()} | 手動設定留抵: ${Math.round(manualOverpayment).toLocaleString()} <br>
-                <span style="font-size: 1.2em;">預估最終結算: ${Math.round(Math.abs(finalPayable)).toLocaleString()} ${finalPayable >= 0 ? '(應納)' : '(留抵)'}</span>
+                會計核定銷項含稅: ${Math.round(finalSalesIncl).toLocaleString()} | 會計核定進項含稅: ${Math.round(finalPurchaseIncl).toLocaleString()} | 手動留抵: ${Math.round(manualOverpayment).toLocaleString()} <br>
+                <span style="font-size: 1.2em;">會計核定最終結算: ${Math.round(Math.abs(finalPayable)).toLocaleString()} ${finalPayable >= 0 ? '(應納)' : '(留抵)'}</span>
             `;
         }
 
@@ -974,13 +994,12 @@
 
         function updateStats2(data) {
             const pFilter = document.getElementById('periodFilter2').value;
-            let sIncl = 0, pIncl = 0, ndIncl = 0, sTax = 0, pTax = 0, sCount = 0, pCount = 0, ndCount = 0;
+            let sIncl = 0, pIncl = 0, ndIncl = 0, sCount = 0, pCount = 0, ndCount = 0;
             
             data.forEach(t => {
                 const total = Number(t.total) || 0;
-                const tax = Number(t.tax) || (total - Math.round(total / 1.05));
-                if (t.type === 'sales') { sIncl += total; sTax += tax; sCount++; }
-                else if (t.type === 'purchase') { pIncl += total; pTax += tax; pCount++; }
+                if (t.type === 'sales') { sIncl += total; sCount++; }
+                else if (t.type === 'purchase') { pIncl += total; pCount++; }
                 else if (t.type === 'non_deductible') { ndIncl += total; ndCount++; }
             });
 
@@ -991,30 +1010,38 @@
             document.getElementById('countPurchases2').innerText = pCount + ' 筆';
             document.getElementById('countNonDeductible2').innerText = ndCount + ' 筆';
             
-            // 1. 本期試算 (不含留抵)
-            const directPayable = sTax - pTax;
+            let sysSTax = sIncl - Math.round(sIncl / 1.05);
+            let sysPTax = pIncl - Math.round(pIncl / 1.05);
+            const directPayable = sysSTax - sysPTax;
+
             const pEl = document.getElementById('statPayableTax2');
             const cardEl = document.getElementById('payableCard2');
-            
             pEl.innerText = '$' + Math.round(Math.abs(directPayable)).toLocaleString() + (directPayable >= 0 ? ' (應納)' : ' (留抵)');
-            document.getElementById('formulaDisplay2').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)})`;
+            document.getElementById('formulaDisplay2').innerText = `公式：(銷項稅額 - 進項稅額)`;
             cardEl.className = directPayable >= 0 ? "bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-5 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
-            // 2. 會計核定/預估最終留抵
             let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
-            let manualOverpayment = Number(settings2[activeP]) || 0;
-            const finalPayable = directPayable - manualOverpayment;
+            let pSet = settings2[activeP] || {};
+            
+            let finalSalesIncl = (pSet.sales !== undefined && pSet.sales !== '') ? Number(pSet.sales) : sIncl;
+            let finalPurchaseIncl = (pSet.purchase !== undefined && pSet.purchase !== '') ? Number(pSet.purchase) : pIncl;
+            let manualOverpayment = (pSet.overpayment !== undefined && pSet.overpayment !== '') ? Number(pSet.overpayment) : 0;
+
+            let finalSTax = finalSalesIncl - Math.round(finalSalesIncl / 1.05);
+            let finalPTax = finalPurchaseIncl - Math.round(finalPurchaseIncl / 1.05);
+            
+            const finalPayable = finalSTax - finalPTax - manualOverpayment;
 
             const finalEl = document.getElementById('statFinalCalculatedTax2');
             const finalCardEl = document.getElementById('finalCalculatedCard2');
 
             finalEl.innerText = '$' + Math.round(Math.abs(finalPayable)).toLocaleString() + (finalPayable >= 0 ? ' (應納)' : ' (留抵)');
-            document.getElementById('finalFormulaDisplay2').innerText = `公式：(銷項 ${Math.round(sTax)} - 進項 ${Math.round(pTax)} - 留抵 ${Math.round(manualOverpayment)})`;
+            document.getElementById('finalFormulaDisplay2').innerText = `公式：(銷項 ${Math.round(finalSTax)} - 進項 ${Math.round(finalPTax)} - 留抵 ${Math.round(manualOverpayment)})`;
             finalCardEl.className = finalPayable >= 0 ? "bg-rose-600 p-5 rounded-2xl shadow-lg border border-rose-700 text-white relative overflow-hidden transition-colors" : "bg-purple-700 p-5 rounded-2xl shadow-lg border border-purple-800 text-white relative overflow-hidden transition-colors";
 
             document.getElementById('printFooter2').innerHTML = `
-                銷項稅額: ${Math.round(sTax).toLocaleString()} | 可抵進項稅額: ${Math.round(pTax).toLocaleString()} | 非抵稅項目總額: ${Math.round(ndIncl).toLocaleString()} | 手動設定留抵: ${Math.round(manualOverpayment).toLocaleString()} <br>
-                <span style="font-size: 1.2em;">預估最終結算: ${Math.round(Math.abs(finalPayable)).toLocaleString()} ${finalPayable >= 0 ? '(應納)' : '(留抵)'}</span>
+                會計核定銷項含稅: ${Math.round(finalSalesIncl).toLocaleString()} | 會計核定進項含稅: ${Math.round(finalPurchaseIncl).toLocaleString()} | 手動留抵: ${Math.round(manualOverpayment).toLocaleString()} <br>
+                <span style="font-size: 1.2em;">會計核定最終結算: ${Math.round(Math.abs(finalPayable)).toLocaleString()} ${finalPayable >= 0 ? '(應納)' : '(留抵)'}</span>
             `;
         }
 
