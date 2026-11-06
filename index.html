@@ -124,7 +124,7 @@
                         <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
                         <option value="3">05-06月</option><option value="4">07-08月</option>
-                        <option value="5">09-10月</option><option value="6" selected>11-12月</option>
+                        <option value="5" selected>09-10月</option><option value="6">11-12月</option>
                     </select>
                     <button onclick="exportCSV(1)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
                         匯出 Excel 明細
@@ -291,7 +291,7 @@
                         <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
                         <option value="3">05-06月</option><option value="4">07-08月</option>
-                        <option value="5">09-10月</option><option value="6" selected>11-12月</option>
+                        <option value="5" selected>09-10月</option><option value="6">11-12月</option>
                     </select>
                     <button onclick="exportCSV(2)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
                         匯出 Excel 明細
@@ -449,7 +449,7 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        let isTesterMode = true; // 預設直接啟用單機模式確保完全可存檔
+        let isTesterMode = true; 
         let transactions1 = [];
         let transactions2 = [];
         
@@ -541,6 +541,10 @@
 
             let currentPrev = Number(sets[1]) || 0;
             for (let p = 1; p <= 6; p++) {
+                // 如果該期有手動設定期初留抵，則覆蓋或累加
+                if (sets[p] && Number(sets[p]) > 0) {
+                    currentPrev = Number(sets[p]);
+                }
                 computed[p] = currentPrev;
                 const res = getPeriodResult(txs, p, currentPrev);
                 currentPrev = res.netPayable < 0 ? Math.abs(res.netPayable) : 0;
@@ -553,23 +557,29 @@
             const computed = tabNum === 1 ? computedOverpayments1 : computedOverpayments2;
             const sets = tabNum === 1 ? settings1 : settings2;
             
-            if (pFilter === 'all') {
-                document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[6] || 0).toLocaleString();
-                document.getElementById(`prevOverpayment${tabNum}`).value = sets[6] !== undefined ? sets[6] : '';
-            } else {
-                const pNum = parseInt(pFilter);
-                document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[pNum] || 0).toLocaleString();
-                document.getElementById(`prevOverpayment${tabNum}`).value = sets[pNum] !== undefined ? sets[pNum] : '';
+            let activePeriod = 5; // 預設使用最新填寫常用之 09-10月 (第5期)
+            if (pFilter !== 'all') {
+                activePeriod = parseInt(pFilter);
             }
+
+            document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[activePeriod] || 0).toLocaleString();
+            document.getElementById(`prevOverpayment${tabNum}`).value = sets[activePeriod] !== undefined && sets[activePeriod] !== 0 ? sets[activePeriod] : '';
+        }
+
+        function getCurrentSelectedPeriod(tabNum) {
+            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
+            if (pFilter !== 'all') return parseInt(pFilter);
+            
+            // 若為 'all'，自動根據目前表單輸入框的日期判定對應期別
+            const inputDate = document.getElementById(`date${tabNum}`).value;
+            if (inputDate) {
+                return Math.ceil((new Date(inputDate).getMonth() + 1) / 2);
+            }
+            return 5; // 預設第5期 (9-10月)
         }
 
         function onInputOverpayment(tabNum) {
-            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
-            if (pFilter === 'all') {
-                alert('請先在上方「期間篩選」選擇特定期別（例如 11-12月），再調整該期留抵！');
-                return;
-            }
-            const pNum = parseInt(pFilter);
+            const pNum = getCurrentSelectedPeriod(tabNum);
             const val = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
             
             if (tabNum === 1) {
@@ -585,7 +595,7 @@
 
         function savePrevOverpayment(tabNum) {
             onInputOverpayment(tabNum);
-            alert('期初留抵設定已成功更新並儲存！');
+            alert('期初留抵設定已成功更新並滾動儲存！');
         }
 
         function switchTab(tabId) {
@@ -792,11 +802,8 @@
             });
 
             let usedOverpayment = 0;
-            if (pFilter === 'all') {
-                usedOverpayment = computedOverpayments1[6] || 0;
-            } else {
-                usedOverpayment = computedOverpayments1[parseInt(pFilter)] || 0;
-            }
+            let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
+            usedOverpayment = computedOverpayments1[activeP] || 0;
 
             document.getElementById('statTotalSalesIncl1').innerText = '$' + Math.round(sIncl).toLocaleString();
             document.getElementById('statTotalPurchasesIncl1').innerText = '$' + Math.round(pIncl).toLocaleString();
@@ -884,11 +891,8 @@
             });
 
             let usedOverpayment = 0;
-            if (pFilter === 'all') {
-                usedOverpayment = computedOverpayments2[6] || 0;
-            } else {
-                usedOverpayment = computedOverpayments2[parseInt(pFilter)] || 0;
-            }
+            let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
+            usedOverpayment = computedOverpayments2[activeP] || 0;
 
             document.getElementById('statTotalSalesIncl2').innerText = '$' + Math.round(sIncl).toLocaleString();
             document.getElementById('statTotalPurchasesIncl2').innerText = '$' + Math.round(pIncl).toLocaleString();
