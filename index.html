@@ -121,7 +121,7 @@
                         <option value="purchase">僅看進項 (可抵稅支出)</option>
                         <option value="non_deductible">僅看非抵稅項目</option>
                     </select>
-                    <select id="periodFilter1" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll1()">
+                    <select id="periodFilter1" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="onPeriodFilterChange(1)">
                         <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
                         <option value="3">05-06月</option><option value="4">07-08月</option>
@@ -163,7 +163,7 @@
                     </div>
                 </div>
 
-                <!-- 卡片 5：會計核定最終結果 (對應您輸入的會計所資料與留抵) -->
+                <!-- 卡片 5：會計核定最終結果 -->
                 <div id="finalCalculatedCard1" class="bg-purple-700 p-5 rounded-2xl shadow-lg border border-purple-800 text-white relative overflow-hidden">
                     <div class="relative z-10">
                         <p class="text-purple-200 font-bold mb-1 uppercase text-xs">會計核定最終結果</p>
@@ -179,7 +179,7 @@
                     <div>
                         <h3 class="text-xs font-black text-slate-700 uppercase mb-3 border-b pb-2 flex items-center justify-between">
                             <span>會計所最終核定資訊</span>
-                            <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">可手動覆蓋</span>
+                            <span id="periodBadge1" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">第 5 期 (09-10月)</span>
                         </h3>
                         
                         <div class="space-y-3">
@@ -312,7 +312,7 @@
                         <option value="purchase">僅看進項 (可抵稅支出)</option>
                         <option value="non_deductible">僅看非抵稅項目</option>
                     </select>
-                    <select id="periodFilter2" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="renderAll2()">
+                    <select id="periodFilter2" class="bg-white border border-slate-300 rounded-xl px-4 py-2 shadow-sm text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" onchange="onPeriodFilterChange(2)">
                         <option value="all">所有期間 (全部加總)</option>
                         <option value="1">01-02月</option><option value="2">03-04月</option>
                         <option value="3">05-06月</option><option value="4">07-08月</option>
@@ -370,7 +370,7 @@
                     <div>
                         <h3 class="text-xs font-black text-slate-700 uppercase mb-3 border-b pb-2 flex items-center justify-between">
                             <span>會計所最終核定資訊</span>
-                            <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">可手動覆蓋</span>
+                            <span id="periodBadge2" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold">第 5 期 (09-10月)</span>
                         </h3>
                         
                         <div class="space-y-3">
@@ -501,16 +501,17 @@
         let transactions1 = [];
         let transactions2 = [];
         
-        // 儲存格式: { periodNum: { sales: val, purchase: val, overpayment: val } }
         let settings1 = {};
         let settings2 = {};
+
+        const periodNames = {
+            1: '01-02月', 2: '03-04月', 3: '05-06月',
+            4: '07-08月', 5: '09-10月', 6: '11-12月'
+        };
 
         window.onload = () => { 
             document.getElementById('date1').valueAsDate = new Date(); 
             document.getElementById('date2').valueAsDate = new Date(); 
-
-            document.getElementById('periodFilter1').addEventListener('change', () => updatePeriodUI(1));
-            document.getElementById('periodFilter2').addEventListener('change', () => updatePeriodUI(2));
 
             if (localStorage.getItem('is_tester_session') === 'true') {
                 loginAsTester();
@@ -628,18 +629,6 @@
             renderAll2();
         }
 
-        function updatePeriodUI(tabNum) {
-            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
-            const sets = tabNum === 1 ? settings1 : settings2;
-            let activePeriod = pFilter === 'all' ? 5 : parseInt(pFilter);
-
-            const periodData = sets[activePeriod] || { sales: '', purchase: '', overpayment: '' };
-            
-            document.getElementById(`manualSales${tabNum}`).value = periodData.sales !== undefined && periodData.sales !== '' ? periodData.sales : '';
-            document.getElementById(`manualPurchase${tabNum}`).value = periodData.purchase !== undefined && periodData.purchase !== '' ? periodData.purchase : '';
-            document.getElementById(`prevOverpayment${tabNum}`).value = periodData.overpayment !== undefined && periodData.overpayment !== '' ? periodData.overpayment : '';
-        }
-
         function getCurrentSelectedPeriod(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             if (pFilter !== 'all') return parseInt(pFilter);
@@ -648,6 +637,30 @@
                 return Math.ceil((new Date(inputDate).getMonth() + 1) / 2);
             }
             return 5;
+        }
+
+        function onPeriodFilterChange(tabNum) {
+            updatePeriodUI(tabNum);
+            tabNum === 1 ? renderAll1() : renderAll2();
+        }
+
+        function updatePeriodUI(tabNum) {
+            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
+            const sets = tabNum === 1 ? settings1 : settings2;
+            let activePeriod = pFilter === 'all' ? 5 : parseInt(pFilter);
+
+            const badgeEl = document.getElementById(`periodBadge${tabNum}`);
+            if (pFilter === 'all') {
+                badgeEl.innerText = `全期彙總 (顯示第5期設定)`;
+            } else {
+                badgeEl.innerText = `第 ${activePeriod} 期 (${periodNames[activePeriod]})`;
+            }
+
+            const periodData = sets[activePeriod] || { sales: '', purchase: '', overpayment: '' };
+            
+            document.getElementById(`manualSales${tabNum}`).value = periodData.sales !== undefined ? periodData.sales : '';
+            document.getElementById(`manualPurchase${tabNum}`).value = periodData.purchase !== undefined ? periodData.purchase : '';
+            document.getElementById(`prevOverpayment${tabNum}`).value = periodData.overpayment !== undefined ? periodData.overpayment : '';
         }
 
         function onInputAccountingInfo(tabNum) {
@@ -674,7 +687,8 @@
 
         function saveAccountingInfo(tabNum) {
             onInputAccountingInfo(tabNum);
-            alert('會計核定資料與留抵設定已成功儲存！');
+            const pNum = getCurrentSelectedPeriod(tabNum);
+            alert(`第 ${pNum} 期 (${periodNames[pNum]}) 的會計核定資料與留抵設定已成功儲存！`);
         }
 
         function switchTab(tabId) {
@@ -797,7 +811,7 @@
         });
 
         const keywords2 = {
-            sales: ['洗車', '鍍膜', '美容', '打蠟', '內裝', '皮革', '除臭', '除鐵粉', '拋光', '鍍鉻', '貼膜', '包膜', '犀牛皮', '改色', '隔熱紙', '燈膜', 'PPF', '收入', '服務費', '工資', '尾款', '訂金', '開發票', '洗車券'],
+            sales: ['洗車', '鍍膜', '美容', '打臘', '內裝', '皮革', '除臭', '除鐵粉', '拋光', '鍍鉻', '貼膜', '包膜', '犀牛皮', '改色', '隔熱紙', '燈膜', 'PPF', '收入', '服務費', '工資', '尾款', '訂金', '開發票', '洗車券'],
             purchase: ['藥水', '海綿', '毛巾', '蠟', '鍍膜液', '洗車精', '柏油', '鐵粉', '拋光盤', '機器修繕', '高壓水槍', '吸塵器', '空壓機', '膜料', '膠水', '刮板', '美工刀', '熱風槍', '酒精', '3M', 'Avery', 'Oracal', '進貨', '耗材', '租金', '房租', '水費', '電費', '薪資', '加油', '廣告', 'Facebook', '車位租金']
         };
         document.getElementById('desc2').addEventListener('input', (e) => {
@@ -824,6 +838,7 @@
             if (tFilter !== 'all') displayData = displayData.filter(t => t.type === tFilter);
             
             updateStats1(displayData);
+            updatePeriodUI(1);
 
             const tbody = document.getElementById('dataTable1');
             const ptbody = document.getElementById('printTableBody1');
@@ -873,7 +888,6 @@
                     </tr>
                 `;
             });
-            updatePeriodUI(1);
         }
 
         function updateStats1(data) {
@@ -894,7 +908,6 @@
             document.getElementById('countPurchases1').innerText = pCount + ' 筆';
             document.getElementById('countNonDeductible1').innerText = ndCount + ' 筆';
             
-            // 系統試算稅額 (從列表明細計算)
             let sysSTax = sIncl - Math.round(sIncl / 1.05);
             let sysPTax = pIncl - Math.round(pIncl / 1.05);
             const directPayable = sysSTax - sysPTax;
@@ -905,7 +918,6 @@
             document.getElementById('formulaDisplay1').innerText = `公式：(銷項稅額 - 進項稅額)`;
             cardEl.className = directPayable >= 0 ? "bg-blue-600 p-5 rounded-2xl shadow-lg border border-blue-700 text-white relative overflow-hidden transition-colors" : "bg-emerald-600 p-5 rounded-2xl shadow-lg border border-emerald-700 text-white relative overflow-hidden transition-colors";
 
-            // 會計核定最終結果 (優先讀取手動輸入的會計核定含稅總額與留抵)
             let activeP = pFilter === 'all' ? 5 : parseInt(pFilter);
             let pSet = settings1[activeP] || {};
             
@@ -916,7 +928,6 @@
             let finalSTax = finalSalesIncl - Math.round(finalSalesIncl / 1.05);
             let finalPTax = finalPurchaseIncl - Math.round(finalPurchaseIncl / 1.05);
             
-            // 最終公式：銷項稅額 - 進項稅額 - 手動留抵
             const finalPayable = finalSTax - finalPTax - manualOverpayment;
 
             const finalEl = document.getElementById('statFinalCalculatedTax1');
@@ -940,6 +951,7 @@
             if (tFilter !== 'all') displayData = displayData.filter(t => t.type === tFilter);
             
             updateStats2(displayData);
+            updatePeriodUI(2);
 
             const tbody = document.getElementById('dataTable2');
             const ptbody = document.getElementById('printTableBody2');
@@ -989,7 +1001,6 @@
                     </tr>
                 `;
             });
-            updatePeriodUI(2);
         }
 
         function updateStats2(data) {
