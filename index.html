@@ -632,11 +632,7 @@
         function getCurrentSelectedPeriod(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             if (pFilter !== 'all') return parseInt(pFilter);
-            const inputDate = document.getElementById(`date${tabNum}`).value;
-            if (inputDate) {
-                return Math.ceil((new Date(inputDate).getMonth() + 1) / 2);
-            }
-            return 4;
+            return 4; // 預設第4期 (07-08月)
         }
 
         function onPeriodFilterChange(tabNum) {
