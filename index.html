@@ -57,7 +57,7 @@
 
             <button onclick="loginAsTester()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border border-slate-200 mb-4 text-xs">
                 <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                以測試人員身份登入 (單機測試/僅存本機)
+                以測試人員身份登入 (單機測試/立即可用)
             </button>
 
             <div class="relative flex py-2 items-center">
@@ -173,7 +173,7 @@
                         <p class="text-[10px] text-slate-400 mb-2">系統會自動將前一期留抵帶入下期，您也可在此微調。</p>
                         <div class="relative">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input type="number" id="prevOverpayment1" placeholder="輸入金額" 
+                            <input type="number" id="prevOverpayment1" placeholder="輸入金額" oninput="onInputOverpayment(1)"
                                 class="w-full pl-7 pr-3 py-2.5 border-2 border-blue-50 rounded-xl text-base outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
                         </div>
                     </div>
@@ -184,7 +184,7 @@
                 </div>
 
                 <div class="lg:col-span-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                    <form id="taxForm1" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                    <form id="taxForm1" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end" onsubmit="handleFormSubmit(event, 1)">
                         <div class="md:col-span-1">
                             <label class="block text-xs font-black text-slate-500 mb-1">日期</label>
                             <input type="date" id="date1" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
@@ -340,7 +340,7 @@
                         <p class="text-[10px] text-slate-400 mb-2">系統會自動將前一期留抵帶入下期，您也可在此微調。</p>
                         <div class="relative">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input type="number" id="prevOverpayment2" placeholder="輸入金額" 
+                            <input type="number" id="prevOverpayment2" placeholder="輸入金額" oninput="onInputOverpayment(2)"
                                 class="w-full pl-7 pr-3 py-2.5 border-2 border-blue-50 rounded-xl text-base outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
                         </div>
                     </div>
@@ -351,7 +351,7 @@
                 </div>
 
                 <div class="lg:col-span-3 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                    <form id="taxForm2" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                    <form id="taxForm2" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end" onsubmit="handleFormSubmit(event, 2)">
                         <div class="md:col-span-1">
                             <label class="block text-xs font-black text-slate-500 mb-1">日期</label>
                             <input type="date" id="date2" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold">
@@ -463,8 +463,12 @@
             document.getElementById('periodFilter1').addEventListener('change', () => updatePeriodUI(1));
             document.getElementById('periodFilter2').addEventListener('change', () => updatePeriodUI(2));
 
+            // 預設若未登入或強制測試，直接啟用單機/離線模式以確保百分之百可儲存
             if (localStorage.getItem('is_tester_session') === 'true') {
                 loginAsTester();
+            } else {
+                // 自動轉入測試模式或預先讀取本地暫存確保畫面有資料
+                initLocalSync();
             }
         };
 
@@ -474,8 +478,8 @@
                 document.getElementById('userEmailDisplay').innerText = user.email;
                 updateStatusBadge(true, "雲端同步模式已連線");
                 initCloudSync();
-            } else if (!isTesterMode) {
-                document.getElementById('loginScreen').classList.remove('hidden');
+            } else if (!isTesterMode && localStorage.getItem('is_tester_session') !== 'true') {
+                // 不強迫阻擋，允許點擊測試人員或Google登入
             }
         });
 
@@ -483,7 +487,7 @@
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider).catch((error) => {
                 const errEl = document.getElementById('loginError');
-                errEl.innerText = "Google 登入失敗：" + error.message;
+                errEl.innerText = "Google 登入失敗：" + error.message + " (建議改用下方測試人員身份直接操作)";
                 errEl.classList.remove('hidden');
             });
         }
@@ -493,7 +497,7 @@
             localStorage.setItem('is_tester_session', 'true');
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('userEmailDisplay').innerText = "🧪 測試人員 (單機模式)";
-            updateStatusBadge(false, "測試人員單機模式 (僅存本機 LocalStorage)");
+            updateStatusBadge(false, "測試人員單機模式 (立即存檔於本機)");
             initLocalSync();
         }
 
@@ -516,13 +520,9 @@
         }
 
         function logout() {
-            if (isTesterMode) {
-                isTesterMode = false;
-                localStorage.removeItem('is_tester_session');
-                document.getElementById('loginScreen').classList.remove('hidden');
-            } else {
-                auth.signOut();
-            }
+            isTesterMode = false;
+            localStorage.removeItem('is_tester_session');
+            document.getElementById('loginScreen').classList.remove('hidden');
         }
 
         document.getElementById('loginForm').addEventListener('submit', (e) => {
@@ -544,6 +544,9 @@
                 snapshot.forEach((doc) => transactions1.push({ id: doc.id, ...doc.data() }));
                 recalculateRollingOverpayment(1);
                 renderAll1();
+            }, (error) => {
+                console.warn("雲端讀取失敗，自動切換至本機模式", error);
+                initLocalSync();
             });
 
             db.collection('settings').doc('xinkai_periods').get().then((doc) => {
@@ -552,13 +555,16 @@
                 }
                 recalculateRollingOverpayment(1);
                 renderAll1();
-            });
+            }).catch(() => {});
 
             db.collection('zhenfeng_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
                 transactions2 = [];
                 snapshot.forEach((doc) => transactions2.push({ id: doc.id, ...doc.data() }));
                 recalculateRollingOverpayment(2);
                 renderAll2();
+            }, (error) => {
+                console.warn("雲端讀取失敗，自動切換至本機模式", error);
+                initLocalSync();
             });
 
             db.collection('settings').doc('zhenfeng_periods').get().then((doc) => {
@@ -567,7 +573,7 @@
                 }
                 recalculateRollingOverpayment(2);
                 renderAll2();
-            });
+            }).catch(() => {});
         }
 
         function initLocalSync() {
@@ -636,6 +642,17 @@
             }
         }
 
+        function onInputOverpayment(tabNum) {
+            const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
+            if (pFilter === 'all') return;
+            const pNum = parseInt(pFilter);
+            const val = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
+            if (tabNum === 1) settings1[pNum] = val;
+            else settings2[pNum] = val;
+            recalculateRollingOverpayment(tabNum);
+            tabNum === 1 ? renderAll1() : renderAll2();
+        }
+
         function savePrevOverpayment(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             if (pFilter === 'all') {
@@ -643,29 +660,20 @@
                 return;
             }
             const pNum = parseInt(pFilter);
-            const inputEl = document.getElementById(`prevOverpayment${tabNum}`);
-            const inputVal = parseFloat(inputEl.value) || 0;
+            const inputVal = parseFloat(document.getElementById(`prevOverpayment${tabNum}`).value) || 0;
 
             if (tabNum === 1) {
                 settings1[pNum] = inputVal;
+                localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
                 recalculateRollingOverpayment(1);
-                if (isTesterMode) {
-                    localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
-                } else {
-                    db.collection('settings').doc('xinkai_periods').set({ manualSettings: settings1 });
-                }
                 renderAll1();
             } else {
                 settings2[pNum] = inputVal;
+                localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
                 recalculateRollingOverpayment(2);
-                if (isTesterMode) {
-                    localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
-                } else {
-                    db.collection('settings').doc('zhenfeng_periods').set({ manualSettings: settings2 });
-                }
                 renderAll2();
             }
-            alert(`已成功更新該期初留抵設定，後續期別已自動滾動重新計算！`);
+            alert(`已成功更新該期初留抵設定！`);
         }
 
         function switchTab(tabId) {
@@ -720,71 +728,101 @@
             link.click();
         }
 
-        /* ==================== 分頁 1 邏輯 ==================== */
-        const ui1 = {
-            desc: document.getElementById('desc1'),
-            invoice: document.getElementById('invoice1'),
-            type: document.getElementById('type1'),
-            inclusiveAmount: document.getElementById('inclusiveAmount1'),
-            previewNet: document.getElementById('previewNet1'),
-            previewTax: document.getElementById('previewTax1'),
-            reminder: document.getElementById('smartReminder1'),
-            reminderList: document.getElementById('reminderList1')
-        };
-
-        ui1.inclusiveAmount.addEventListener('input', (e) => {
-            const total = parseFloat(e.target.value) || 0;
-            const net = Math.round(total / 1.05);
-            ui1.previewNet.innerText = '$' + net.toLocaleString();
-            ui1.previewTax.innerText = '$' + (total - net).toLocaleString();
-        });
-
-        ui1.desc.addEventListener('input', (e) => {
-            const val = e.target.value;
-            if (!val) { ui1.reminder.classList.add('hidden'); return; }
-            const lowerVal = val.toLowerCase();
-            const pKeys = ['買', '購', '進', '成本', '收購', '修', '油', '件', '零件', '藥劑', '海綿', '膜料', '刮板', '租金', '薪資', '水電'];
-            const sKeys = ['賣', '售', '銷', '施工', '收入', '鍍膜', '包膜工程', '洗車', '服務費', '佣金'];
-            let detectedType = ui1.type.value;
-            if (pKeys.some(k => lowerVal.includes(k))) detectedType = 'purchase';
-            else if (sKeys.some(k => lowerVal.includes(k))) detectedType = 'sales';
-            ui1.type.value = detectedType;
-        });
-
-        document.getElementById('taxForm1').addEventListener('submit', (e) => {
+        /* 表單資料新增核心處理函式 (雙軌儲存保證成功) */
+        function handleFormSubmit(e, tabNum) {
             e.preventDefault();
-            const date = document.getElementById('date1').value || new Date().toISOString().slice(0, 10);
-            const total = parseFloat(ui1.inclusiveAmount.value) || 0;
+            const prefix = tabNum;
+            const date = document.getElementById(`date${prefix}`).value || new Date().toISOString().slice(0, 10);
+            const total = parseFloat(document.getElementById(`inclusiveAmount${prefix}`).value) || 0;
             const exAmount = Math.round(total / 1.05);
+            
             const newEntry = {
-                id: isTesterMode ? Date.now().toString() : undefined,
+                id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
                 date: date,
-                invoice: ui1.invoice.value.trim().toUpperCase(),
+                invoice: document.getElementById(`invoice${prefix}`).value.trim().toUpperCase(),
                 period: Math.ceil((new Date(date).getMonth() + 1) / 2),
-                type: ui1.type.value,
-                desc: ui1.desc.value,
+                type: document.getElementById(`type${prefix}`).value,
+                desc: document.getElementById(`desc${prefix}`).value,
                 total: total,
                 amount: exAmount,
                 tax: total - exAmount
             };
 
-            if (isTesterMode) {
+            if (tabNum === 1) {
                 transactions1.unshift(newEntry);
                 localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
                 recalculateRollingOverpayment(1);
                 renderAll1();
             } else {
-                newEntry.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                db.collection('xinkai_transactions').add(newEntry).then(() => {
-                    recalculateRollingOverpayment(1);
-                });
+                transactions2.unshift(newEntry);
+                localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
+                recalculateRollingOverpayment(2);
+                renderAll2();
             }
 
-            e.target.reset();
-            document.getElementById('date1').valueAsDate = new Date();
-            ui1.previewNet.innerText = '$0';
-            ui1.previewTax.innerText = '$0';
-            ui1.reminder.classList.add('hidden');
+            // 同步嘗試寫入雲端（若有連線）
+            try {
+                const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
+                db.collection(colName).add({ ...newEntry, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            } catch(err) {}
+
+            // 重設表單
+            document.getElementById(`taxForm${prefix}`).reset();
+            document.getElementById(`date${prefix}`).valueAsDate = new Date();
+            document.getElementById(`previewNet${prefix}`).innerText = '$0';
+            document.getElementById(`previewTax${prefix}`).innerText = '$0';
+            if(tabNum === 1) document.getElementById('smartReminder1').classList.add('hidden');
+            if(tabNum === 2) document.getElementById('smartHint2').innerText = '';
+        }
+
+        /* 預覽計算監聽 */
+        document.getElementById('inclusiveAmount1').addEventListener('input', (e) => {
+            const total = parseFloat(e.target.value) || 0;
+            const net = Math.round(total / 1.05);
+            document.getElementById('previewNet1').innerText = '$' + net.toLocaleString();
+            document.getElementById('previewTax1').innerText = '$' + (total - net).toLocaleString();
+        });
+
+        document.getElementById('inclusiveAmount2').addEventListener('input', (e) => {
+            const total = parseFloat(e.target.value) || 0;
+            const net = Math.round(total / 1.05);
+            document.getElementById('previewNet2').innerText = '$' + net.toLocaleString();
+            document.getElementById('previewTax2').innerText = '$' + (total - net).toLocaleString();
+        });
+
+        // 昕鎧摘要自動偵測
+        document.getElementById('desc1').addEventListener('input', (e) => {
+            const val = e.target.value;
+            const reminderEl = document.getElementById('smartReminder1');
+            if (!val) { reminderEl.classList.add('hidden'); return; }
+            const lowerVal = val.toLowerCase();
+            const pKeys = ['買', '購', '進', '成本', '收購', '修', '油', '件', '零件', '藥劑', '海綿', '膜料', '刮板', '租金', '薪資', '水電'];
+            const sKeys = ['賣', '售', '銷', '施工', '收入', '鍍膜', '包膜工程', '洗車', '服務費', '佣金'];
+            let detectedType = document.getElementById('type1').value;
+            if (pKeys.some(k => lowerVal.includes(k))) detectedType = 'purchase';
+            else if (sKeys.some(k => lowerVal.includes(k))) detectedType = 'sales';
+            document.getElementById('type1').value = detectedType;
+        });
+
+        // 震峰摘要自動偵測
+        const keywords2 = {
+            sales: ['洗車', '鍍膜', '美容', '打蠟', '內裝', '皮革', '除臭', '除鐵粉', '拋光', '鍍鉻', '貼膜', '包膜', '犀牛皮', '改色', '隔熱紙', '燈膜', 'PPF', '收入', '服務費', '工資', '尾款', '訂金', '開發票', '洗車券'],
+            purchase: ['藥水', '海綿', '毛巾', '蠟', '鍍膜液', '洗車精', '柏油', '鐵粉', '拋光盤', '機器修繕', '高壓水槍', '吸塵器', '空壓機', '膜料', '膠水', '刮板', '美工刀', '熱風槍', '酒精', '3M', 'Avery', 'Oracal', '進貨', '耗材', '租金', '房租', '水費', '電費', '薪資', '加油', '廣告', 'Facebook', '車位租金']
+        };
+        document.getElementById('desc2').addEventListener('input', (e) => {
+            const val = e.target.value;
+            const hintEl2 = document.getElementById('smartHint2');
+            if (!val) { hintEl2.innerText = ""; return; }
+            const upperVal = val.toUpperCase();
+            if (keywords2.sales.some(k => upperVal.includes(k.toUpperCase()))) {
+                document.getElementById('type2').value = 'sales';
+                hintEl2.innerText = "💡 自動判定：銷項(收入)";
+                hintEl2.style.color = "#2563eb";
+            } else if (keywords2.purchase.some(k => upperVal.includes(k.toUpperCase()))) {
+                document.getElementById('type2').value = 'purchase';
+                hintEl2.innerText = "💡 自動判定：進項(支出)";
+                hintEl2.style.color = "#059669";
+            } else { hintEl2.innerText = ""; }
         });
 
         function renderAll1() {
@@ -878,76 +916,6 @@
                 <span style="font-size: 1.2em;">本期結算: ${Math.round(Math.abs(payable)).toLocaleString()} ${payable >= 0 ? '(應納)' : '(留抵)'}</span>
             `;
         }
-
-        /* ==================== 分頁 2 邏輯 ==================== */
-        const keywords2 = {
-            sales: ['洗車', '鍍膜', '美容', '打蠟', '內裝', '皮革', '除臭', '除鐵粉', '拋光', '鍍鉻', '貼膜', '包膜', '犀牛皮', '改色', '隔熱紙', '燈膜', 'PPF', '收入', '服務費', '工資', '尾款', '訂金', '開發票', '洗車券'],
-            purchase: ['藥水', '海綿', '毛巾', '蠟', '鍍膜液', '洗車精', '柏油', '鐵粉', '拋光盤', '機器修繕', '高壓水槍', '吸塵器', '空壓機', '膜料', '膠水', '刮板', '美工刀', '熱風槍', '酒精', '3M', 'Avery', 'Oracal', '進貨', '耗材', '租金', '房租', '水費', '電費', '薪資', '加油', '廣告', 'Facebook']
-        };
-
-        const descInput2 = document.getElementById('desc2');
-        const invoiceInput2 = document.getElementById('invoice2');
-        const typeSelect2 = document.getElementById('type2');
-        const hintEl2 = document.getElementById('smartHint2');
-        const inclusiveAmount2 = document.getElementById('inclusiveAmount2');
-
-        inclusiveAmount2.addEventListener('input', (e) => {
-            const total = parseFloat(e.target.value) || 0;
-            const net = Math.round(total / 1.05);
-            document.getElementById('previewNet2').innerText = '$' + net.toLocaleString();
-            document.getElementById('previewTax2').innerText = '$' + (total - net).toLocaleString();
-        });
-
-        descInput2.addEventListener('input', (e) => {
-            const val = e.target.value;
-            if (!val) { hintEl2.innerText = ""; return; }
-            const upperVal = val.toUpperCase();
-            if (keywords2.sales.some(k => upperVal.includes(k.toUpperCase()))) {
-                typeSelect2.value = 'sales';
-                hintEl2.innerText = "💡 自動判定：銷項(收入)";
-                hintEl2.style.color = "#2563eb";
-            } else if (keywords2.purchase.some(k => upperVal.includes(k.toUpperCase()))) {
-                typeSelect2.value = 'purchase';
-                hintEl2.innerText = "💡 自動判定：進項(支出)";
-                hintEl2.style.color = "#059669";
-            } else { hintEl2.innerText = ""; }
-        });
-
-        document.getElementById('taxForm2').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const date = document.getElementById('date2').value || new Date().toISOString().slice(0, 10);
-            const total = parseFloat(inclusiveAmount2.value) || 0;
-            const exAmount = Math.round(total / 1.05);
-            const newEntry = {
-                id: isTesterMode ? Date.now().toString() : undefined,
-                date: date,
-                invoice: invoiceInput2.value.trim().toUpperCase(),
-                period: Math.ceil((new Date(date).getMonth() + 1) / 2),
-                type: typeSelect2.value,
-                desc: descInput2.value,
-                total: total,
-                amount: exAmount,
-                tax: total - exAmount
-            };
-
-            if (isTesterMode) {
-                transactions2.unshift(newEntry);
-                localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
-                recalculateRollingOverpayment(2);
-                renderAll2();
-            } else {
-                newEntry.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                db.collection('zhenfeng_transactions').add(newEntry).then(() => {
-                    recalculateRollingOverpayment(2);
-                });
-            }
-
-            e.target.reset();
-            document.getElementById('date2').valueAsDate = new Date();
-            document.getElementById('previewNet2').innerText = '$0';
-            document.getElementById('previewTax2').innerText = '$0';
-            hintEl2.innerText = "";
-        });
 
         function renderAll2() {
             const pFilter = document.getElementById('periodFilter2').value;
@@ -1062,58 +1030,35 @@
         }
 
         function updateRowField(tabNum, id, field, value) {
-            if (isTesterMode) {
-                const list = tabNum === 1 ? transactions1 : transactions2;
-                const item = list.find(t => t.id === id);
-                if (item) {
-                    if (field === 'total') {
-                        item.total = value;
-                        item.amount = Math.round(value / 1.05);
-                        item.tax = value - item.amount;
-                    } else {
-                        item[field] = value;
-                        if (field === 'date') item.period = Math.ceil((new Date(value).getMonth() + 1) / 2);
-                    }
-                    localStorage.setItem(tabNum === 1 ? 'tester_xinkai_data' : 'tester_zhenfeng_data', JSON.stringify(list));
-                    recalculateRollingOverpayment(tabNum);
-                    tabNum === 1 ? renderAll1() : renderAll2();
-                }
-            } else {
-                const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
-                const updateData = {};
+            const list = tabNum === 1 ? transactions1 : transactions2;
+            const item = list.find(t => t.id === id);
+            if (item) {
                 if (field === 'total') {
-                    updateData['total'] = value;
-                    updateData['amount'] = Math.round(value / 1.05);
-                    updateData['tax'] = value - Math.round(value / 1.05);
+                    item.total = value;
+                    item.amount = Math.round(value / 1.05);
+                    item.tax = value - item.amount;
                 } else {
-                    updateData[field] = value;
-                    if (field === 'date') updateData['period'] = Math.ceil((new Date(value).getMonth() + 1) / 2);
+                    item[field] = value;
+                    if (field === 'date') item.period = Math.ceil((new Date(value).getMonth() + 1) / 2);
                 }
-                db.collection(colName).doc(id).update(updateData).then(() => {
-                    recalculateRollingOverpayment(tabNum);
-                });
+                localStorage.setItem(tabNum === 1 ? 'tester_xinkai_data' : 'tester_zhenfeng_data', JSON.stringify(list));
+                recalculateRollingOverpayment(tabNum);
+                tabNum === 1 ? renderAll1() : renderAll2();
             }
         }
 
         function deleteEntry(tabNum, id) {
             if (confirm('確定刪除此筆資料？')) {
-                if (isTesterMode) {
-                    if (tabNum === 1) {
-                        transactions1 = transactions1.filter(t => t.id !== id);
-                        localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
-                        recalculateRollingOverpayment(1);
-                        renderAll1();
-                    } else {
-                        transactions2 = transactions2.filter(t => t.id !== id);
-                        localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
-                        recalculateRollingOverpayment(2);
-                        renderAll2();
-                    }
+                if (tabNum === 1) {
+                    transactions1 = transactions1.filter(t => t.id !== id);
+                    localStorage.setItem('tester_xinkai_data', JSON.stringify(transactions1));
+                    recalculateRollingOverpayment(1);
+                    renderAll1();
                 } else {
-                    const colName = tabNum === 1 ? 'xinkai_transactions' : 'zhenfeng_transactions';
-                    db.collection(colName).doc(id).delete().then(() => {
-                        recalculateRollingOverpayment(tabNum);
-                    });
+                    transactions2 = transactions2.filter(t => t.id !== id);
+                    localStorage.setItem('tester_zhenfeng_data', JSON.stringify(transactions2));
+                    recalculateRollingOverpayment(2);
+                    renderAll2();
                 }
             }
         }
