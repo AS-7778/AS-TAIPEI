@@ -186,17 +186,17 @@
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-總銷項(含稅)</label>
                                 <input type="number" id="manualSales1" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(1)"
-                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                                    class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-blue-600 transition-all bg-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-可抵進項(含稅)</label>
                                 <input type="number" id="manualPurchase1" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(1)"
-                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-emerald-600 transition-all">
+                                    class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-emerald-600 transition-all bg-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">上期剩餘/手動更改留抵額</label>
                                 <input type="number" id="prevOverpayment1" placeholder="輸入金額" oninput="onInputAccountingInfo(1)"
-                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-purple-500 font-black text-purple-700 transition-all">
+                                    class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm outline-none focus:border-purple-500 font-black text-purple-700 transition-all bg-white">
                             </div>
                         </div>
                     </div>
@@ -377,17 +377,17 @@
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-總銷項(含稅)</label>
                                 <input type="number" id="manualSales2" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(2)"
-                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-blue-600 transition-all">
+                                    class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-blue-600 transition-all bg-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">會計核定-可抵進項(含稅)</label>
                                 <input type="number" id="manualPurchase2" placeholder="留空則採系統計算" oninput="onInputAccountingInfo(2)"
-                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-emerald-600 transition-all">
+                                    class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 font-black text-emerald-600 transition-all bg-white">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">上期剩餘/手動更改留抵額</label>
                                 <input type="number" id="prevOverpayment2" placeholder="輸入金額" oninput="onInputAccountingInfo(2)"
-                                    class="w-full px-3 py-2 border-2 border-slate-100 rounded-xl text-sm outline-none focus:border-purple-500 font-black text-purple-700 transition-all">
+                                    class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm outline-none focus:border-purple-500 font-black text-purple-700 transition-all bg-white">
                             </div>
                         </div>
                     </div>
@@ -652,11 +652,12 @@
                 badgeEl.innerText = `第 ${activePeriod} 期 (${periodNames[activePeriod]})`;
             }
 
-            const periodData = sets[activePeriod] || { sales: '', purchase: '', overpayment: '' };
+            const periodData = sets[activePeriod] || {};
             
-            document.getElementById(`manualSales${tabNum}`).value = periodData.sales !== undefined ? periodData.sales : '';
-            document.getElementById(`manualPurchase${tabNum}`).value = periodData.purchase !== undefined ? periodData.purchase : '';
-            document.getElementById(`prevOverpayment${tabNum}`).value = periodData.overpayment !== undefined ? periodData.overpayment : '';
+            // 防呆處置：確保寫回 input 的值絕不包含 null 或 undefined
+            document.getElementById(`manualSales${tabNum}`).value = (periodData.sales !== undefined && periodData.sales !== null) ? periodData.sales : '';
+            document.getElementById(`manualPurchase${tabNum}`).value = (periodData.purchase !== undefined && periodData.purchase !== null) ? periodData.purchase : '';
+            document.getElementById(`prevOverpayment${tabNum}`).value = (periodData.overpayment !== undefined && periodData.overpayment !== null) ? periodData.overpayment : '';
         }
 
         function onInputAccountingInfo(tabNum) {
@@ -674,10 +675,10 @@
 
             if (tabNum === 1) {
                 localStorage.setItem('tester_xinkai_settings', JSON.stringify(settings1));
-                renderAll1();
+                updateStats1(getFilteredData(1));
             } else {
                 localStorage.setItem('tester_zhenfeng_settings', JSON.stringify(settings2));
-                renderAll2();
+                updateStats2(getFilteredData(2));
             }
         }
 
@@ -707,15 +708,19 @@
             }
         }
 
-        function exportCSV(tabNum) {
-            const companyName = tabNum === 1 ? '昕鎧國際有限公司' : '震峰有限公司';
+        function getFilteredData(tabNum) {
             const data = tabNum === 1 ? transactions1 : transactions2;
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             const tFilter = document.getElementById(`typeFilter${tabNum}`).value;
-
             let filtered = data;
             if (pFilter !== 'all') filtered = filtered.filter(t => t.period == pFilter);
             if (tFilter !== 'all') filtered = filtered.filter(t => t.type === tFilter);
+            return filtered;
+        }
+
+        function exportCSV(tabNum) {
+            const companyName = tabNum === 1 ? '昕鎧國際有限公司' : '震峰有限公司';
+            const filtered = getFilteredData(tabNum);
 
             if (filtered.length === 0) {
                 alert('目前沒有資料可供匯出！');
@@ -827,14 +832,9 @@
         });
 
         function renderAll1() {
-            const pFilter = document.getElementById('periodFilter1').value;
-            const tFilter = document.getElementById('typeFilter1').value;
-            let displayData = transactions1;
-            if (pFilter !== 'all') displayData = displayData.filter(t => t.period == pFilter);
-            if (tFilter !== 'all') displayData = displayData.filter(t => t.type === tFilter);
-            
-            updateStats1(displayData);
+            const displayData = getFilteredData(1);
             updatePeriodUI(1);
+            updateStats1(displayData);
 
             const tbody = document.getElementById('dataTable1');
             const ptbody = document.getElementById('printTableBody1');
@@ -940,14 +940,9 @@
         }
 
         function renderAll2() {
-            const pFilter = document.getElementById('periodFilter2').value;
-            const tFilter = document.getElementById('typeFilter2').value;
-            let displayData = transactions2;
-            if (pFilter !== 'all') displayData = displayData.filter(t => t.period == pFilter);
-            if (tFilter !== 'all') displayData = displayData.filter(t => t.type === tFilter);
-            
-            updateStats2(displayData);
+            const displayData = getFilteredData(2);
             updatePeriodUI(2);
+            updateStats2(displayData);
 
             const tbody = document.getElementById('dataTable2');
             const ptbody = document.getElementById('printTableBody2');
