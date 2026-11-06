@@ -449,7 +449,7 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        let isTesterMode = true; 
+        let isTesterMode = false;
         let transactions1 = [];
         let transactions2 = [];
         
@@ -463,8 +463,30 @@
             document.getElementById('periodFilter1').addEventListener('change', () => updatePeriodUI(1));
             document.getElementById('periodFilter2').addEventListener('change', () => updatePeriodUI(2));
 
-            loginAsTester();
+            if (localStorage.getItem('is_tester_session') === 'true') {
+                loginAsTester();
+            }
         };
+
+        auth.onAuthStateChanged((user) => {
+            if (user && !isTesterMode) {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('userEmailDisplay').innerText = user.email;
+                updateStatusBadge(true, "雲端同步模式已連線");
+                initCloudSync();
+            } else if (!isTesterMode && localStorage.getItem('is_tester_session') !== 'true') {
+                // 維持登入畫面
+            }
+        });
+
+        function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch((error) => {
+                const errEl = document.getElementById('loginError');
+                errEl.innerText = "Google 登入失敗：" + error.message + " (建議改用上方「測試人員身份」直接操作)";
+                errEl.classList.remove('hidden');
+            });
+        }
 
         function loginAsTester() {
             isTesterMode = true;
@@ -494,7 +516,60 @@
         }
 
         function logout() {
-            document.getElementById('loginScreen').classList.remove('hidden');
+            isTesterMode = false;
+            localStorage.removeItem('is_tester_session');
+            auth.signOut().then(() => {
+                document.getElementById('loginScreen').classList.remove('hidden');
+            });
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errEl = document.getElementById('loginError');
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    errEl.innerText = "登入失敗：" + error.message;
+                    errEl.classList.remove('hidden');
+                });
+        });
+
+        function initCloudSync() {
+            db.collection('xinkai_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
+                transactions1 = [];
+                snapshot.forEach((doc) => transactions1.push({ id: doc.id, ...doc.data() }));
+                recalculateRollingOverpayment(1);
+                renderAll1();
+            }, (error) => {
+                initLocalSync();
+            });
+
+            db.collection('settings').doc('xinkai_periods').get().then((doc) => {
+                if (doc.exists && doc.data().manualSettings) {
+                    settings1 = doc.data().manualSettings;
+                }
+                recalculateRollingOverpayment(1);
+                renderAll1();
+            }).catch(() => {});
+
+            db.collection('zhenfeng_transactions').orderBy('date', 'desc').onSnapshot((snapshot) => {
+                transactions2 = [];
+                snapshot.forEach((doc) => transactions2.push({ id: doc.id, ...doc.data() }));
+                recalculateRollingOverpayment(2);
+                renderAll2();
+            }, (error) => {
+                initLocalSync();
+            });
+
+            db.collection('settings').doc('zhenfeng_periods').get().then((doc) => {
+                if (doc.exists && doc.data().manualSettings) {
+                    settings2 = doc.data().manualSettings;
+                }
+                recalculateRollingOverpayment(2);
+                renderAll2();
+            }).catch(() => {});
         }
 
         function initLocalSync() {
@@ -541,8 +616,7 @@
 
             let currentPrev = Number(sets[1]) || 0;
             for (let p = 1; p <= 6; p++) {
-                // 如果該期有手動設定期初留抵，則覆蓋或累加
-                if (sets[p] && Number(sets[p]) > 0) {
+                if (sets[p] !== undefined && Number(sets[p]) !== 0) {
                     currentPrev = Number(sets[p]);
                 }
                 computed[p] = currentPrev;
@@ -557,10 +631,7 @@
             const computed = tabNum === 1 ? computedOverpayments1 : computedOverpayments2;
             const sets = tabNum === 1 ? settings1 : settings2;
             
-            let activePeriod = 5; // 預設使用最新填寫常用之 09-10月 (第5期)
-            if (pFilter !== 'all') {
-                activePeriod = parseInt(pFilter);
-            }
+            let activePeriod = pFilter === 'all' ? 5 : parseInt(pFilter);
 
             document.getElementById(`currentSavedOverpayment${tabNum}`).innerText = '$' + Number(computed[activePeriod] || 0).toLocaleString();
             document.getElementById(`prevOverpayment${tabNum}`).value = sets[activePeriod] !== undefined && sets[activePeriod] !== 0 ? sets[activePeriod] : '';
@@ -569,13 +640,11 @@
         function getCurrentSelectedPeriod(tabNum) {
             const pFilter = document.getElementById(`periodFilter${tabNum}`).value;
             if (pFilter !== 'all') return parseInt(pFilter);
-            
-            // 若為 'all'，自動根據目前表單輸入框的日期判定對應期別
             const inputDate = document.getElementById(`date${tabNum}`).value;
             if (inputDate) {
                 return Math.ceil((new Date(inputDate).getMonth() + 1) / 2);
             }
-            return 5; // 預設第5期 (9-10月)
+            return 5;
         }
 
         function onInputOverpayment(tabNum) {
